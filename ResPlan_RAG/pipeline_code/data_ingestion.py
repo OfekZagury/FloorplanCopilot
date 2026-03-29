@@ -7,67 +7,55 @@ import networkx as nx
 
 # Import configuration and the utility functions from the provided file
 import config
-from resplan_utils import plan_to_graph
+from ResPlan_RAG.resplan_dataset_files.resplan_utils import plan_to_graph
 
 
 def create_apartment_description(plan):
     """
-    Analyzes the apartment plan and its room graph to generate
-    a semantic text description in Hebrew for the Vector DB,
-    along with metadata.
+    Generates a pure topological semantic description in ENGLISH for the Vector DB.
+    Ignores area completely in the text to allow the RAG to focus on layout,
+    since area is handled parametrically later.
     """
-    # Build the topological graph of the apartment
     try:
         G = plan_to_graph(plan)
     except Exception as e:
-        # Fallback to an empty graph if generation fails for a specific plan
         G = nx.Graph()
 
-    area = plan.get('area', 0.0)
-
-    # Count the number of rooms by type
     room_counts = {}
     for node, data in G.nodes(data=True):
         r_type = data.get("type")
         if r_type:
             room_counts[r_type] = room_counts.get(r_type, 0) + 1
 
-    # Extract specific counts with defaults to 0
     bedrooms = room_counts.get('bedroom', 0)
     bathrooms = room_counts.get('bathroom', 0)
     balconies = room_counts.get('balcony', 0)
     has_living = 'living' in room_counts
     has_kitchen = 'kitchen' in room_counts
 
-    # Construct a descriptive semantic text in Hebrew for embedding
-    desc_parts = [f"Residential apartment with an area of {area:.1f} square meters."]
+    # Pure layout description
+    desc_parts = ["A residential apartment layout."]
 
-    if bedrooms > 0 or bathrooms > 0:
-        rooms_text = "apartment includes"
-        if bedrooms > 0:
-            rooms_text += f" {bedrooms} bedrooms,"
-        if bathrooms > 0:
-            rooms_text += f" {bathrooms} bathrooms"
-        if balconies > 0:
-            rooms_text += f" ו-{balconies}  balconies"
-        else:
-            # Replace the last comma with a period
-            rooms_text = rooms_text.rstrip(',') + "."
-        desc_parts.append(rooms_text)
+    rooms_info = []
+    if bedrooms > 0: rooms_info.append(f"{bedrooms} bedrooms")
+    if bathrooms > 0: rooms_info.append(f"{bathrooms} bathrooms")
+    if balconies > 0: rooms_info.append(f"{balconies} balconies")
+
+    if rooms_info:
+        desc_parts.append("It includes " + ", ".join(rooms_info) + ".")
 
     if has_living and has_kitchen:
-        desc_parts.append("The apartment has a living room connected to the kitchen area.")
+        desc_parts.append("The design features an open layout with the living room connected to the kitchen.")
     elif has_living:
-        desc_parts.append("The apartment has a central living room area.")
+        desc_parts.append("The design includes a central living room.")
 
     semantic_text = " ".join(desc_parts)
 
-    # Prepare strictly structured metadata for hard filtering
+    # Keep area strictly in metadata for the scaling math later
     metadata = {
-        "area": float(area),
+        "area": float(plan.get('area', 0.0)),
         "bedrooms": int(bedrooms),
-        "bathrooms": int(bathrooms),
-        "balconies": int(balconies)
+        "bathrooms": int(bathrooms)
     }
 
     return semantic_text, metadata
