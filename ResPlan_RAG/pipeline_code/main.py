@@ -1,5 +1,5 @@
-from retrieval_engine import retrieve_apartment
-from dxf_exporter import export_to_dxf
+from ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine import retrieve_apartment
+from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporter import export_to_dxf
 
 
 def run_architectural_pipeline():

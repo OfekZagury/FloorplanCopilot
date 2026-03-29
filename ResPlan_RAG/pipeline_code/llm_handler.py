@@ -1,7 +1,6 @@
 import os
 import json
 from openai import OpenAI
-import config
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 
@@ -95,7 +94,7 @@ def generate_architectural_plan(playground, user_request):
 
 
 if __name__ == "__main__":
-    from retrieval_engine import retrieve_apartment
+    from ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine import retrieve_apartment
 
     test_query = "4-room apartment with a living room open to the kitchen and a balcony"
     print("1. Retrieving Playground...")
