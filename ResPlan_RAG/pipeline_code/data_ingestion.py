@@ -64,25 +64,67 @@ def create_apartment_description(plan):
     elif has_living:
         desc_parts.append("The design includes a central living room.")
 
+    # --- NEW 1: Entry Flow ---
+    front_door_node = None
+    for node, data in G.nodes(data=True):
+        if data.get('type') == 'front_door':
+            front_door_node = node
+            break
+
+    if front_door_node:
+        entry_connections = [G.nodes[neighbor].get('type') for neighbor in G.neighbors(front_door_node)]
+        if 'living' in entry_connections:
+            desc_parts.append("The front door opens directly into the main living space.")
+        elif 'corridor' in entry_connections or 'hall' in entry_connections:
+            desc_parts.append("The entrance features a formal entryway or corridor for added privacy.")
+        else:
+            desc_parts.append("The apartment has a distinct entry area separated from the main living room.")
+
     # --- Suggestion 4: Shape compactness per room ---
-    # We use a set to keep track of added labels to avoid repetition
-    # (e.g., if there are two square bedrooms, we only say it once).
     added_aspects = set()
     for node, data in G.nodes(data=True):
         if data.get('type') == 'bedroom':
             geom = data.get('geometry')
             if geom:
+                # Make sure aspect_label function is defined outside or imported
                 label = aspect_label(geom)
                 if label and label not in added_aspects:
                     desc_parts.append(f"A bedroom has an {label} layout.")
                     added_aspects.add(label)
 
+    # --- NEW 2: Storage and Utility Presence ---
+    storage_poly = plan.get('storage')
+    if storage_poly and not storage_poly.is_empty:
+        storage_nodes = [n for n, d in G.nodes(data=True) if d.get('type') == 'storage']
+        if storage_nodes:
+            storage_neighbors = [G.nodes[neighbor].get('type') for neighbor in G.neighbors(storage_nodes[0])]
+            if 'kitchen' in storage_neighbors:
+                desc_parts.append(
+                    "There is a dedicated storage space accessible from the kitchen, functioning as a pantry.")
+            else:
+                desc_parts.append("The layout includes dedicated internal storage or closet space.")
+        else:
+            desc_parts.append("The layout includes dedicated internal storage space.")
+
+    # --- NEW 3: Shared/Wrap-around Balconies ---
+    shared_balcony_found = False
+    balcony_nodes = [n for n, d in G.nodes(data=True) if d.get('type') == 'balcony']
+
+    for b_node in balcony_nodes:
+        connected_room_types = set([G.nodes[neighbor].get('type') for neighbor in G.neighbors(b_node)])
+        if 'living' in connected_room_types and 'bedroom' in connected_room_types:
+            desc_parts.append(
+                "A shared wrap-around balcony is accessible from both the living area and a bedroom, creating an excellent continuous indoor-outdoor flow.")
+            shared_balcony_found = True
+            break
+
     # --- Suggestion 1: Graph-based room connectivity ---
-    # We use boolean flags to avoid repeating sentences if multiple matches exist
     has_ensuite = False
     has_public_bath = False
-    living_balcony = False
-    bedroom_balcony = False
+
+    # If a shared balcony is found, we set these to True so we don't add redundant single-balcony sentences
+    living_balcony = shared_balcony_found
+    bedroom_balcony = shared_balcony_found
 
     for u, v, data in G.edges(data=True):
         edge_type = data.get('type')
