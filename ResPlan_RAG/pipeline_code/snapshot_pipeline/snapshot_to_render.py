@@ -90,7 +90,9 @@ def capture_scene_snapshot(scene, output_path):
     image.fill(Qt.GlobalColor.black)
 
     painter = QPainter(image)
-    scene.render(painter, target=QRectF(0.0, 0.0, float(width), float(height)), source=rect)
+    scene.render(
+        painter, target=QRectF(0.0, 0.0, float(width), float(height)), source=rect
+    )
     painter.end()
 
     ok = image.save(output_path)
@@ -115,7 +117,11 @@ def get_hsv_mask(image_hsv, color_name):
 def _to_shapely(geom_data):
     if isinstance(geom_data, BaseGeometry):
         return geom_data
-    if isinstance(geom_data, dict) and "type" in geom_data and "coordinates" in geom_data:
+    if (
+        isinstance(geom_data, dict)
+        and "type" in geom_data
+        and "coordinates" in geom_data
+    ):
         return shape(geom_data)
     return None
 
@@ -147,14 +153,18 @@ def _legacy_hsv_seg_map(input_path, output_path):
     seg_map = Image.new("RGB", (width, height), (0, 0, 0))
     draw = ImageDraw.Draw(seg_map)
 
-    contours, _ = cv2.findContours(cyan_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(
+        cyan_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
     furniture_color = (0, 192, 192)
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
         if w > 15 and h > 15:
             draw.rectangle([x, y, x + w, y + h], fill=furniture_color)
 
-    wall_contours, _ = cv2.findContours(green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    wall_contours, _ = cv2.findContours(
+        green_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
     wall_color = (255, 255, 255)
     for cnt in wall_contours:
         if cv2.contourArea(cnt) > 10:
@@ -173,8 +183,7 @@ def _geometry_room_seg_map(playground, output_path, width, height):
 
     room_keys = list(config.HF_SEG_ROOM_PRIORITY)
     room_polygons = {
-        key: _extract_polygons(_to_shapely(playground.get(key)))
-        for key in room_keys
+        key: _extract_polygons(_to_shapely(playground.get(key))) for key in room_keys
     }
     wall_polygons = _extract_polygons(_to_shapely(playground.get("wall")))
 
@@ -207,11 +216,15 @@ def _geometry_room_seg_map(playground, output_path, width, height):
         return px, py
 
     def draw_poly_fill(poly, rgb_color):
-        ext = np.array([world_to_px(x, y) for x, y in poly.exterior.coords], dtype=np.int32)
+        ext = np.array(
+            [world_to_px(x, y) for x, y in poly.exterior.coords], dtype=np.int32
+        )
         if len(ext) >= 3:
             cv2.fillPoly(seg, [ext], color=tuple(int(v) for v in rgb_color))
         for interior in poly.interiors:
-            hole = np.array([world_to_px(x, y) for x, y in interior.coords], dtype=np.int32)
+            hole = np.array(
+                [world_to_px(x, y) for x, y in interior.coords], dtype=np.int32
+            )
             if len(hole) >= 3:
                 cv2.fillPoly(seg, [hole], color=(0, 0, 0))
 
@@ -226,9 +239,17 @@ def _geometry_room_seg_map(playground, output_path, width, height):
     wall_width = int(config.HF_SEG_WALL_LINE_WIDTH)
     if wall_rgb is not None and wall_width > 0:
         for poly in wall_polygons:
-            ext = np.array([world_to_px(x, y) for x, y in poly.exterior.coords], dtype=np.int32)
+            ext = np.array(
+                [world_to_px(x, y) for x, y in poly.exterior.coords], dtype=np.int32
+            )
             if len(ext) >= 2:
-                cv2.polylines(seg, [ext], isClosed=True, color=tuple(int(v) for v in wall_rgb), thickness=wall_width)
+                cv2.polylines(
+                    seg,
+                    [ext],
+                    isClosed=True,
+                    color=tuple(int(v) for v in wall_rgb),
+                    thickness=wall_width,
+                )
 
     Image.fromarray(seg).save(output_path)
     return output_path
@@ -244,7 +265,9 @@ def process_cad_to_seg_map(input_path, output_path, playground=None):
         if img is not None:
             h, w = img.shape[:2]
             try:
-                return _geometry_room_seg_map(playground, output_path, width=w, height=h)
+                return _geometry_room_seg_map(
+                    playground, output_path, width=w, height=h
+                )
             except Exception:
                 if not config.HF_SEG_ALLOW_FALLBACK_TO_HSV:
                     raise
@@ -292,10 +315,17 @@ def _get_or_create_pipeline(controlnet_model_ids):
         raise RuntimeError(f"PyTorch is required for rendering. Details: {exc}")
 
     try:
-        from diffusers import ControlNetModel, StableDiffusionControlNetPipeline, UniPCMultistepScheduler
+        from diffusers import (
+            ControlNetModel,
+            StableDiffusionControlNetPipeline,
+            UniPCMultistepScheduler,
+        )
+
         MultiControlNetModel = None
         if len(model_ids) > 1:
-            from diffusers.models.controlnets.multicontrolnet import MultiControlNetModel
+            from diffusers.models.controlnets.multicontrolnet import (
+                MultiControlNetModel,
+            )
     except Exception as exc:
         raise RuntimeError(
             "Diffusion dependencies are missing. Install torch/diffusers/transformers/accelerate/safetensors. "
@@ -311,7 +341,9 @@ def _get_or_create_pipeline(controlnet_model_ids):
         )
     else:
         if MultiControlNetModel is None:
-            raise RuntimeError("MultiControlNetModel is unavailable in the installed diffusers package")
+            raise RuntimeError(
+                "MultiControlNetModel is unavailable in the installed diffusers package"
+            )
         controlnets = [
             ControlNetModel.from_pretrained(mid, torch_dtype=torch_dtype)
             for mid in model_ids
@@ -333,17 +365,27 @@ def _get_or_create_pipeline(controlnet_model_ids):
     return _PIPE_CACHE[cache_key]
 
 
-def generate_hf_render(control_image_paths, controlnet_model_ids, output_image_path, controlnet_conditioning_scale=None, prompt=None, negative_prompt=None):
+def generate_hf_render(
+    control_image_paths,
+    controlnet_model_ids,
+    output_image_path,
+    controlnet_conditioning_scale=None,
+    prompt=None,
+    negative_prompt=None,
+):
     """Generate a photorealistic image from one or multiple control images."""
     try:
         import torch
+
         diffusers_utils = importlib.import_module("diffusers.utils")
         load_image = getattr(diffusers_utils, "load_image")
     except Exception as exc:
         raise RuntimeError(f"Could not import torch/diffusers utilities: {exc}")
 
     if len(control_image_paths) != len(controlnet_model_ids):
-        raise RuntimeError("control_image_paths and controlnet_model_ids must have the same length")
+        raise RuntimeError(
+            "control_image_paths and controlnet_model_ids must have the same length"
+        )
 
     pipe = _get_or_create_pipeline(controlnet_model_ids)
     loaded_images = [load_image(p) for p in control_image_paths]
@@ -352,12 +394,16 @@ def generate_hf_render(control_image_paths, controlnet_model_ids, output_image_p
     if str(config.HF_DEVICE).lower() == "cpu":
         generator = torch.Generator().manual_seed(int(config.HF_SEED))
     else:
-        generator = torch.Generator(device=config.HF_DEVICE).manual_seed(int(config.HF_SEED))
+        generator = torch.Generator(device=config.HF_DEVICE).manual_seed(
+            int(config.HF_SEED)
+        )
 
     # --- Handling dynamic prompts ---
     # If a specific prompt (like 3D) was passed, we will use it, otherwise we will take the 2D from the config
     final_prompt = prompt if prompt is not None else config.HF_PROMPT
-    final_negative = negative_prompt if negative_prompt is not None else config.HF_NEGATIVE_PROMPT
+    final_negative = (
+        negative_prompt if negative_prompt is not None else config.HF_NEGATIVE_PROMPT
+    )
 
     output = pipe(
         final_prompt,
@@ -377,7 +423,9 @@ def _resolve_control_inputs(raw_snapshot_path, artifacts, playground=None):
     mode = str(config.HF_CONTROL_MODE).strip().lower()
 
     if mode == "seg":
-        seg_path = process_cad_to_seg_map(raw_snapshot_path, artifacts["segmentation_map"], playground=playground)
+        seg_path = process_cad_to_seg_map(
+            raw_snapshot_path, artifacts["segmentation_map"], playground=playground
+        )
         return {
             "mode": mode,
             "control_images": [seg_path],
@@ -395,15 +443,22 @@ def _resolve_control_inputs(raw_snapshot_path, artifacts, playground=None):
         }
 
     if mode == "multi":
-        seg_path = process_cad_to_seg_map(raw_snapshot_path, artifacts["segmentation_map"], playground=playground)
+        seg_path = process_cad_to_seg_map(
+            raw_snapshot_path, artifacts["segmentation_map"], playground=playground
+        )
         canny_path = create_canny_control_map(raw_snapshot_path, artifacts["canny_map"])
         scales = list(config.HF_MULTI_CONTROL_SCALES)
         if len(scales) != 2:
-            raise RuntimeError("HF_MULTI_CONTROL_SCALES must contain exactly two values: [seg, canny]")
+            raise RuntimeError(
+                "HF_MULTI_CONTROL_SCALES must contain exactly two values: [seg, canny]"
+            )
         return {
             "mode": mode,
             "control_images": [seg_path, canny_path],
-            "controlnet_models": [config.HF_CONTROLNET_MODEL_ID_SEG, config.HF_CONTROLNET_MODEL_ID_CANNY],
+            "controlnet_models": [
+                config.HF_CONTROLNET_MODEL_ID_SEG,
+                config.HF_CONTROLNET_MODEL_ID_CANNY,
+            ],
             "conditioning_scale": scales,
         }
 
@@ -420,16 +475,22 @@ def run_post_done_render(scene, apartment_id=None, playground=None):
 
     raw_2d = artifacts["raw_snapshot"].replace("_raw.png", "_raw_2d.png")
     raw_3d = artifacts["raw_snapshot"].replace("_raw.png", "_raw_3d.png")
-    render_2d_path = artifacts["rendered_image"].replace("_render.png", "_render_2d.png")
-    render_3d_path = artifacts["rendered_image"].replace("_render.png", "_render_3d.png")
+    render_2d_path = artifacts["rendered_image"].replace(
+        "_render.png", "_render_2d.png"
+    )
+    render_3d_path = artifacts["rendered_image"].replace(
+        "_render.png", "_render_3d.png"
+    )
 
     # ==========================================
     # First run: 2D Top-Down
     # ==========================================
     capture_scene_snapshot(scene, raw_2d)
     art_2d = {
-        "segmentation_map": artifacts["segmentation_map"].replace("_seg.png", "_seg_2d.png"),
-        "canny_map": artifacts["canny_map"].replace("_canny.png", "_canny_2d.png")
+        "segmentation_map": artifacts["segmentation_map"].replace(
+            "_seg.png", "_seg_2d.png"
+        ),
+        "canny_map": artifacts["canny_map"].replace("_canny.png", "_canny_2d.png"),
     }
     control_2d = _resolve_control_inputs(raw_2d, art_2d, playground=playground)
 
@@ -440,7 +501,7 @@ def run_post_done_render(scene, apartment_id=None, playground=None):
             output_image_path=render_2d_path,
             controlnet_conditioning_scale=control_2d["conditioning_scale"],
             prompt=config.HF_PROMPT,
-            negative_prompt=config.HF_NEGATIVE_PROMPT
+            negative_prompt=config.HF_NEGATIVE_PROMPT,
         )
         print(f"[Render Engine] 2D Render complete: {render_2d_path}")
 
@@ -464,11 +525,12 @@ def run_post_done_render(scene, apartment_id=None, playground=None):
             control_image_paths=control_3d_images,
             controlnet_model_ids=control_2d["controlnet_models"],  # Use the same models
             output_image_path=render_3d_path,
-            controlnet_conditioning_scale=config.HF_MULTI_CONTROL_SCALES_3D if control_2d["mode"] == "multi" else None,
+            controlnet_conditioning_scale=config.HF_MULTI_CONTROL_SCALES_3D
+            if control_2d["mode"] == "multi"
+            else None,
             prompt=config.HF_PROMPT_3D,
-            negative_prompt=config.HF_NEGATIVE_PROMPT_3D
+            negative_prompt=config.HF_NEGATIVE_PROMPT_3D,
         )
         print(f"[Render Engine] 3D Render complete: {render_3d_path}")
 
     return {"render_2d": render_2d_path, "render_3d": render_3d_path}
-

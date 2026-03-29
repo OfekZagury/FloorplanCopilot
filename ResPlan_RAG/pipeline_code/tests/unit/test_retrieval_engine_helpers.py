@@ -31,11 +31,18 @@ class _FakeChromaClient:
 def test_build_where_filter_exact_match_clauses(retrieval_helpers_module):
     module = retrieval_helpers_module
 
-    assert module._build_where_filter({"bedrooms": None, "bathrooms": None, "balconies": None}) is None
-    assert module._build_where_filter({"bedrooms": 3, "bathrooms": None, "balconies": None}) == {
-        "bedrooms": {"$eq": 3}
-    }
-    assert module._build_where_filter({"bedrooms": 3, "bathrooms": 2, "balconies": 1}) == {
+    assert (
+        module._build_where_filter(
+            {"bedrooms": None, "bathrooms": None, "balconies": None}
+        )
+        is None
+    )
+    assert module._build_where_filter(
+        {"bedrooms": 3, "bathrooms": None, "balconies": None}
+    ) == {"bedrooms": {"$eq": 3}}
+    assert module._build_where_filter(
+        {"bedrooms": 3, "bathrooms": 2, "balconies": 1}
+    ) == {
         "$and": [
             {"bedrooms": {"$eq": 3}},
             {"bathrooms": {"$eq": 2}},
@@ -83,7 +90,9 @@ def test_scale_apartment_validates_inputs(retrieval_helpers_module):
         module.scale_apartment({"area": 20.0, "x": 1}, 40.0)
 
 
-def test_search_vector_db_applies_where_and_parses_ids(retrieval_helpers_module, monkeypatch):
+def test_search_vector_db_applies_where_and_parses_ids(
+    retrieval_helpers_module, monkeypatch
+):
     module = retrieval_helpers_module
 
     fake_collection = _FakeCollection(
@@ -95,10 +104,14 @@ def test_search_vector_db_applies_where_and_parses_ids(retrieval_helpers_module,
     fake_client = _FakeChromaClient(path="dummy", collection=fake_collection)
 
     monkeypatch.setattr(module.config, "CHROMA_DB_PATH", "db/path", raising=False)
-    monkeypatch.setattr(module.config, "CHROMA_COLLECTION_NAME", "floorplans", raising=False)
+    monkeypatch.setattr(
+        module.config, "CHROMA_COLLECTION_NAME", "floorplans", raising=False
+    )
     monkeypatch.setattr(module.chromadb, "PersistentClient", lambda path: fake_client)
 
-    out = module.search_vector_db("query", where_filter={"bedrooms": {"$eq": 3}}, n_results=5)
+    out = module.search_vector_db(
+        "query", where_filter={"bedrooms": {"$eq": 3}}, n_results=5
+    )
 
     assert out == [(10, "d1"), (20, "d2")]
     assert fake_collection.query_calls[0]["query_texts"] == ["query"]
@@ -106,7 +119,9 @@ def test_search_vector_db_applies_where_and_parses_ids(retrieval_helpers_module,
     assert fake_collection.query_calls[0]["where"] == {"bedrooms": {"$eq": 3}}
 
 
-def test_search_vector_db_returns_empty_when_no_matches(retrieval_helpers_module, monkeypatch):
+def test_search_vector_db_returns_empty_when_no_matches(
+    retrieval_helpers_module, monkeypatch
+):
     module = retrieval_helpers_module
 
     fake_collection = _FakeCollection({"ids": [[]], "documents": [[]]})
@@ -116,7 +131,9 @@ def test_search_vector_db_returns_empty_when_no_matches(retrieval_helpers_module
     assert module.search_vector_db("query") == []
 
 
-def test_get_playground_from_sqlite_roundtrip(retrieval_helpers_module, monkeypatch, tmp_path):
+def test_get_playground_from_sqlite_roundtrip(
+    retrieval_helpers_module, monkeypatch, tmp_path
+):
     module = retrieval_helpers_module
 
     db_path = tmp_path / "apartments.db"
@@ -126,7 +143,10 @@ def test_get_playground_from_sqlite_roundtrip(retrieval_helpers_module, monkeypa
     cur = conn.cursor()
     cur.execute("CREATE TABLE apartments (id INTEGER PRIMARY KEY, raw_data BLOB)")
     expected = {"id": 7, "area": 99.0}
-    cur.execute("INSERT INTO apartments(id, raw_data) VALUES (?, ?)", (7, pickle.dumps(expected)))
+    cur.execute(
+        "INSERT INTO apartments(id, raw_data) VALUES (?, ?)",
+        (7, pickle.dumps(expected)),
+    )
     conn.commit()
     conn.close()
 
@@ -134,7 +154,9 @@ def test_get_playground_from_sqlite_roundtrip(retrieval_helpers_module, monkeypa
     assert module.get_playground_from_sqlite(8) is None
 
 
-def test_refine_search_parameters_parses_json_and_markdown_fence(retrieval_helpers_module, monkeypatch):
+def test_refine_search_parameters_parses_json_and_markdown_fence(
+    retrieval_helpers_module, monkeypatch
+):
     module = retrieval_helpers_module
 
     class _Msg:
@@ -174,7 +196,9 @@ def test_refine_search_parameters_parses_json_and_markdown_fence(retrieval_helpe
     assert mf == {"bathrooms": {"$lt": 3}}
 
 
-def test_refine_search_parameters_fallback_on_parse_error(retrieval_helpers_module, monkeypatch):
+def test_refine_search_parameters_fallback_on_parse_error(
+    retrieval_helpers_module, monkeypatch
+):
     module = retrieval_helpers_module
 
     class _Msg:
@@ -204,10 +228,16 @@ def test_refine_search_parameters_fallback_on_parse_error(retrieval_helpers_modu
     assert mf is None
 
 
-def test_build_candidate_card_counts_rooms_and_embeds_preview(retrieval_helpers_module, monkeypatch):
+def test_build_candidate_card_counts_rooms_and_embeds_preview(
+    retrieval_helpers_module, monkeypatch
+):
     module = retrieval_helpers_module
 
-    monkeypatch.setattr(module, "build_candidate_preview_image", lambda *args, **kwargs: np.zeros((8, 8, 3), dtype=np.uint8))
+    monkeypatch.setattr(
+        module,
+        "build_candidate_preview_image",
+        lambda *args, **kwargs: np.zeros((8, 8, 3), dtype=np.uint8),
+    )
 
     playground = {
         "area": 85.0,
@@ -235,14 +265,22 @@ def test_prompt_optional_int_retries_until_valid(retrieval_helpers_module, monke
     assert out == 2
 
 
-def test_collect_manual_filters_reads_three_values(retrieval_helpers_module, monkeypatch):
+def test_collect_manual_filters_reads_three_values(
+    retrieval_helpers_module, monkeypatch
+):
     module = retrieval_helpers_module
-    monkeypatch.setattr(module, "_prompt_optional_int", lambda label, min_value=0, default=None: 1 if "bedrooms" in label else 2)
+    monkeypatch.setattr(
+        module,
+        "_prompt_optional_int",
+        lambda label, min_value=0, default=None: 1 if "bedrooms" in label else 2,
+    )
     out = module._collect_manual_filters(existing={"bedrooms": 3})
     assert out == {"bedrooms": 1, "bathrooms": 2, "balconies": 2}
 
 
-def test_scale_apartment_returns_same_object_when_area_unchanged(retrieval_helpers_module):
+def test_scale_apartment_returns_same_object_when_area_unchanged(
+    retrieval_helpers_module,
+):
     module = retrieval_helpers_module
     pg = {"area": 100.0, "wall": box(0, 0, 10, 10)}
     out = module.scale_apartment(pg, 100.0)
@@ -262,7 +300,9 @@ def test_scale_apartment_scales_list_geometry_values(retrieval_helpers_module):
     assert out["windows"][1] == "note"
 
 
-def test_extract_polygons_handles_polygon_multipolygon_and_none(retrieval_helpers_module):
+def test_extract_polygons_handles_polygon_multipolygon_and_none(
+    retrieval_helpers_module,
+):
     module = retrieval_helpers_module
     p1 = box(0, 0, 1, 1)
     p2 = box(2, 2, 3, 3)
@@ -273,17 +313,23 @@ def test_extract_polygons_handles_polygon_multipolygon_and_none(retrieval_helper
     assert len(module._extract_polygons(mp)) == 2
 
 
-def test_plot_top_candidates_draws_without_crashing(retrieval_helpers_module, monkeypatch):
+def test_plot_top_candidates_draws_without_crashing(
+    retrieval_helpers_module, monkeypatch
+):
     module = retrieval_helpers_module
     monkeypatch.setattr(module, "plot_plan", lambda *args, **kwargs: None)
     monkeypatch.setattr(module.plt, "show", lambda: None)
 
-    module.plot_top_candidates([
-        (1, 77, "a" * 700, {"area": 88.1}),
-    ])
+    module.plot_top_candidates(
+        [
+            (1, 77, "a" * 700, {"area": 88.1}),
+        ]
+    )
 
 
-def test_build_candidate_preview_image_handles_plot_error_branch(retrieval_helpers_module, monkeypatch):
+def test_build_candidate_preview_image_handles_plot_error_branch(
+    retrieval_helpers_module, monkeypatch
+):
     module = retrieval_helpers_module
 
     def raise_plot(*args, **kwargs):
@@ -293,5 +339,3 @@ def test_build_candidate_preview_image_handles_plot_error_branch(retrieval_helpe
     img = module.build_candidate_preview_image(1, 1, "desc", {"area": 44.0})
     assert isinstance(img, np.ndarray)
     assert img.ndim == 3
-
-

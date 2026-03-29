@@ -3,17 +3,20 @@ import sqlite3
 import chromadb
 import pickle
 import matplotlib.pyplot as plt
+import numpy as np
 import json
 import textwrap
 import math
 import copy
 from shapely.affinity import scale as shapely_scale
 from shapely.geometry.base import BaseGeometry
-from shapely.geometry import shape, mapping
+from shapely.geometry import shape, mapping, Polygon, MultiPolygon
 from openai import OpenAI
 
 from ResPlan_RAG.pipeline_code import config
 from ResPlan_RAG.resplan_dataset_files.resplan_utils import plot_plan
+
+logger = config.logger
 
 # How many top candidates to retrieve and show each round
 TOP_N = 10
@@ -30,7 +33,7 @@ def scale_apartment(playground: dict, target_area_sqm: float) -> dict:
     if target_area_sqm <= 0:
         raise ValueError("target_area_sqm must be a positive number.")
 
-    current_area = float(playground.get('area', 1.0))
+    current_area = float(playground.get("area", 1.0))
     if math.isclose(target_area_sqm, current_area, rel_tol=1e-9, abs_tol=1e-9):
         return playground
 
@@ -42,11 +45,15 @@ def scale_apartment(playground: dict, target_area_sqm: float) -> dict:
     def to_shapely(geom_data):
         if isinstance(geom_data, BaseGeometry):
             return geom_data
-        elif isinstance(geom_data, dict) and 'type' in geom_data and 'coordinates' in geom_data:
+        elif (
+            isinstance(geom_data, dict)
+            and "type" in geom_data
+            and "coordinates" in geom_data
+        ):
             return shape(geom_data)
         return None
 
-    wall_geom = to_shapely(playground.get('wall'))
+    wall_geom = to_shapely(playground.get("wall"))
 
     if wall_geom:
         min_x, min_y, _, _ = wall_geom.bounds
@@ -71,18 +78,29 @@ def scale_apartment(playground: dict, target_area_sqm: float) -> dict:
             for item in value:
                 geom = to_shapely(item)
                 if geom:
-                    scaled_geom = shapely_scale(geom, xfact=scale_factor, yfact=scale_factor, origin=(min_x, min_y))
-                    new_list.append(mapping(scaled_geom) if isinstance(item, dict) else scaled_geom)
+                    scaled_geom = shapely_scale(
+                        geom,
+                        xfact=scale_factor,
+                        yfact=scale_factor,
+                        origin=(min_x, min_y),
+                    )
+                    new_list.append(
+                        mapping(scaled_geom) if isinstance(item, dict) else scaled_geom
+                    )
                 else:
                     new_list.append(item)
             scaled_playground[key] = new_list
         else:
             geom = to_shapely(value)
             if geom:
-                scaled_geom = shapely_scale(geom, xfact=scale_factor, yfact=scale_factor, origin=(min_x, min_y))
-                scaled_playground[key] = mapping(scaled_geom) if isinstance(value, dict) else scaled_geom
+                scaled_geom = shapely_scale(
+                    geom, xfact=scale_factor, yfact=scale_factor, origin=(min_x, min_y)
+                )
+                scaled_playground[key] = (
+                    mapping(scaled_geom) if isinstance(value, dict) else scaled_geom
+                )
 
-    scaled_playground['area'] = float(target_area_sqm)
+    scaled_playground["area"] = float(target_area_sqm)
     return scaled_playground
 
 
@@ -92,7 +110,7 @@ def refine_search_parameters(original_query, rejected_description, user_feedback
     1. A refined semantic text query.
     2. A strict metadata filter for ChromaDB (e.g., {"bathrooms": {"$lt": 4}}).
     """
-    print("[LLM] Analyzing feedback and reformulating query...")
+    logger.info("[LLM] Analyzing feedback and reformulating query...")
 
     prompt = f"""
     You are an AI assistant helping to refine a search for an apartment floorplan.
@@ -119,7 +137,7 @@ def refine_search_parameters(original_query, rejected_description, user_feedback
         model="gpt-5",
         messages=[
             {"role": "user", "content": prompt},
-        ]
+        ],
     )
 
     try:
@@ -128,9 +146,14 @@ def refine_search_parameters(original_query, rejected_description, user_feedback
             raw_text = raw_text[7:-3].strip()
 
         result = json.loads(raw_text)
-        return result.get("refined_query", original_query), result.get("metadata_filter")
-    except Exception as e:
-        print(f"Failed to parse LLM refinement. Fallback to basic search. Error: {e}")
+        return result.get("refined_query", original_query), result.get(
+            "metadata_filter"
+        )
+    except Exception:
+        logger.error(
+            "Failed to parse LLM refinement. Falling back to basic search.",
+            exc_info=True,
+        )
         return f"{original_query} {user_feedback}", None
 
 
@@ -147,7 +170,9 @@ def _prompt_optional_int(label, min_value=0, default=None):
             value = int(raw)
             if value >= min_value:
                 return value
-        print(f"Please enter an integer >= {min_value}, or press Enter to skip.")
+        logger.warning(
+            "Please enter an integer >= %s, or press Enter to skip.", min_value
+        )
 
 
 def _collect_manual_filters(existing=None):
@@ -156,12 +181,18 @@ def _collect_manual_filters(existing=None):
     Only exact filters for bedrooms/bathrooms/balconies.
     """
     existing = existing or {}
-    print("\n--- Optional Hard Filters (Exact Match) ---")
-    print("Leave blank for any field you do not want to constrain.")
+    logger.info("--- Optional Hard Filters (Exact Match) ---")
+    logger.info("Leave blank for any field you do not want to constrain.")
 
-    bedrooms = _prompt_optional_int("Exact bedrooms", min_value=0, default=existing.get("bedrooms"))
-    bathrooms = _prompt_optional_int("Exact bathrooms", min_value=0, default=existing.get("bathrooms"))
-    balconies = _prompt_optional_int("Exact balconies", min_value=0, default=existing.get("balconies"))
+    bedrooms = _prompt_optional_int(
+        "Exact bedrooms", min_value=0, default=existing.get("bedrooms")
+    )
+    bathrooms = _prompt_optional_int(
+        "Exact bathrooms", min_value=0, default=existing.get("bathrooms")
+    )
+    balconies = _prompt_optional_int(
+        "Exact balconies", min_value=0, default=existing.get("balconies")
+    )
 
     return {
         "bedrooms": bedrooms,
@@ -197,9 +228,9 @@ def _build_where_filter(filter_values):
 
 def _print_active_filters(where_filter):
     if where_filter:
-        print(f"[Filter] Active hard filter: {where_filter}")
+        logger.info("[Filter] Active hard filter: %s", where_filter)
     else:
-        print("[Filter] No hard filters active.")
+        logger.info("[Filter] No hard filters active.")
 
 
 def search_vector_db(query_text, where_filter=None, n_results=TOP_N):
@@ -211,24 +242,21 @@ def search_vector_db(query_text, where_filter=None, n_results=TOP_N):
     chroma_client = chromadb.PersistentClient(path=config.CHROMA_DB_PATH)
     collection = chroma_client.get_collection(name=config.CHROMA_COLLECTION_NAME)
 
-    query_kwargs = {
-        "query_texts": [query_text],
-        "n_results": n_results
-    }
+    query_kwargs = {"query_texts": [query_text], "n_results": n_results}
 
     if where_filter:
         query_kwargs["where"] = where_filter
-        print(f"[Vector DB] Applying hard filter: {where_filter}")
+        logger.debug("[Vector DB] Applying hard filter: %s", where_filter)
 
     results = collection.query(**query_kwargs)
 
-    if not results['ids'][0]:
-        print("No matching apartments found in the Vector DB.")
+    if not results["ids"][0]:
+        logger.info("No matching apartments found in the Vector DB.")
         return []
 
     candidates = [
         (int(apt_id), description)
-        for apt_id, description in zip(results['ids'][0], results['documents'][0])
+        for apt_id, description in zip(results["ids"][0], results["documents"][0])
     ]
 
     return candidates
@@ -322,6 +350,94 @@ def plot_top_candidates(candidates_data):
             ),
         )
 
-
-        plt.tight_layout(rect=[0, 0, 1, 0.90])
+        plt.tight_layout(rect=(0, 0, 1, 0.90))
         plt.show()
+
+
+def _safe_room_count(playground, room_key):
+    geom = _to_shapely(playground.get(room_key))
+    polys = _extract_polygons(geom)
+    return len(polys)
+
+
+def _to_shapely(geom_data):
+    if isinstance(geom_data, BaseGeometry):
+        return geom_data
+    if (
+        isinstance(geom_data, dict)
+        and "type" in geom_data
+        and "coordinates" in geom_data
+    ):
+        return shape(geom_data)
+    return None
+
+
+def _extract_polygons(geom):
+    if geom is None or geom.is_empty:
+        return []
+    if isinstance(geom, Polygon):
+        return [geom]
+    if isinstance(geom, MultiPolygon):
+        return [p for p in geom.geoms if not p.is_empty]
+    if hasattr(geom, "geoms"):
+        return [g for g in geom.geoms if isinstance(g, Polygon) and not g.is_empty]
+    return []
+
+
+def build_candidate_preview_image(
+    rank, apt_id, description, playground, figsize=(6, 6), dpi=120
+):
+    """Create a numpy preview image for web UIs without opening interactive windows."""
+    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
+    area = playground.get("area", "N/A")
+    area_str = f"{area:.1f} sqm" if isinstance(area, (int, float)) else str(area)
+    title = f"Option {rank} | ID {apt_id} | {area_str}"
+
+    try:
+        plot_plan(playground, ax=ax, title=title, legend=True, tight=False)
+    except Exception as exc:
+        ax.text(
+            0.5,
+            0.5,
+            f"Plot error:\n{exc}",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+            color="red",
+        )
+        ax.set_title(title)
+
+    for spine in ax.spines.values():
+        spine.set_edgecolor("#3a7bd5")
+        spine.set_linewidth(2.0)
+
+    desc = (description or "").strip()
+    if len(desc) > 280:
+        desc = desc[:277] + "..."
+    wrapped_desc = textwrap.fill(desc, width=70)
+    fig.suptitle(wrapped_desc, fontsize=10, y=0.98)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+
+    fig.canvas.draw()
+    rgba = np.asarray(fig.canvas.buffer_rgba())
+    rgb = rgba[:, :, :3].copy()
+    plt.close(fig)
+    return rgb
+
+
+def build_candidate_card(rank, apt_id, description, playground):
+    """Build a compact UI payload used by the web app candidate cards."""
+    area = playground.get("area", None)
+    return {
+        "rank": rank,
+        "apartment_id": apt_id,
+        "description": description or "",
+        "area": float(area) if isinstance(area, (int, float)) else None,
+        "bedrooms": _safe_room_count(playground, "bedroom"),
+        "bathrooms": _safe_room_count(playground, "bathroom"),
+        "balconies": _safe_room_count(playground, "balcony"),
+        "preview_image": build_candidate_preview_image(
+            rank, apt_id, description, playground
+        ),
+        "playground": playground,
+    }

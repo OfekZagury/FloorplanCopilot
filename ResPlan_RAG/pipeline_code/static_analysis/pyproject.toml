@@ -1,0 +1,29 @@
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+exclude = [
+  ".venv",
+  "dxf_output",
+  "databases",
+  "**/__pycache__",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.13"
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+check_untyped_defs = true
+no_implicit_optional = true
+pretty = true
+ignore_missing_imports = true
+exclude = '(^\.venv/|^dxf_output/|^databases/)'
+
+[tool.bandit]
+exclude_dirs = [".venv", "tests", "dxf_output", "databases"]
+skips = ["B101", "B301", "B403"]
+

@@ -9,25 +9,27 @@ from ResPlan_RAG.pipeline_code import config
 
 logger = config.logger
 
-ROOM_LABEL_HEIGHT = 5.0   # text height for room name labels (drawing units)
+ROOM_LABEL_HEIGHT = 5.0  # text height for room name labels (drawing units)
 
 # Layer names & ACI colours
-L_WALLS  = 'WALLS'        # 3  green
-L_ROOMS  = 'ROOMS'        # 8  grey
-L_DOORS  = 'DOORS'        # 6  magenta
-L_LABELS = 'ROOM_LABELS'  # 2  yellow
-L_FURN   = 'FURNITURE'    # 4  cyan   – beds
+L_WALLS = "WALLS"  # 3  green
+L_ROOMS = "ROOMS"  # 8  grey
+L_DOORS = "DOORS"  # 6  magenta
+L_LABELS = "ROOM_LABELS"  # 2  yellow
+L_FURN = "FURNITURE"  # 4  cyan   – beds
 
 # Living-room placement tuning
-LIVING_ITEM_AREA_RATIO = 0.02         # each major living item = 2% of living area
-LIVING_MIN_CLEARANCE = 0.05             # fixed minimum spacing from doors and boundaries
-LIVING_KITCHEN_SCORE_WEIGHT = 0      # soft preference for dining near kitchen
+LIVING_ITEM_AREA_RATIO = 0.02  # each major living item = 2% of living area
+LIVING_MIN_CLEARANCE = 0.05  # fixed minimum spacing from doors and boundaries
+LIVING_KITCHEN_SCORE_WEIGHT = 0  # soft preference for dining near kitchen
 
 # New zoning behavior for living placement
-LIVING_TV_ZONE_RATIO = 0.38            # fraction of long-axis depth used for TV corner end-zone
-LIVING_DINING_ZONE_RATIO = 0.38        # fraction of long-axis depth used for dining end-zone
-LIVING_ZONE_INSET_RATIO = 0.04         # inset from side walls to keep circulation edges cleaner
-LIVING_X_GAP_RATIO = 0.035             # X unit for TV->coffee->sofa spacing from room minor span
+LIVING_TV_ZONE_RATIO = 0.38  # fraction of long-axis depth used for TV corner end-zone
+LIVING_DINING_ZONE_RATIO = 0.38  # fraction of long-axis depth used for dining end-zone
+LIVING_ZONE_INSET_RATIO = (
+    0.04  # inset from side walls to keep circulation edges cleaner
+)
+LIVING_X_GAP_RATIO = 0.035  # X unit for TV->coffee->sofa spacing from room minor span
 
 ICON_ALIAS_TO_CANONICAL = {
     "working_table": "desk",
@@ -40,20 +42,22 @@ ICON_ALIAS_TO_CANONICAL = {
 #  LOW-LEVEL DRAWING PRIMITIVES
 # ═══════════════════════════════════════════════════════════════════
 
+
 def _rect(msp, x0, y0, x1, y1, layer):
     """Draw a closed rectangle as a lightweight polyline."""
     msp.add_lwpolyline(
         [(x0, y0), (x1, y0), (x1, y1), (x0, y1)],
-        close=True, dxfattribs={'layer': layer}
+        close=True,
+        dxfattribs={"layer": layer},
     )
 
 
 def _line(msp, x0, y0, x1, y1, layer):
-    msp.add_line((x0, y0), (x1, y1), dxfattribs={'layer': layer})
+    msp.add_line((x0, y0), (x1, y1), dxfattribs={"layer": layer})
 
 
 def _circle(msp, cx, cy, r, layer):
-    msp.add_circle((cx, cy), radius=r, dxfattribs={'layer': layer})
+    msp.add_circle((cx, cy), radius=r, dxfattribs={"layer": layer})
 
 
 def _ellipse(msp, cx, cy, rx, ry, layer):
@@ -74,10 +78,10 @@ def _ellipse(msp, cx, cy, rx, ry, layer):
     # - major_axis: vector from center to end of major semi-axis
     # - ratio: minor / major, strictly (0, 1]
     if rx >= ry:
-        major_axis = (rx, 0.0, 0.0)   # major along X
+        major_axis = (rx, 0.0, 0.0)  # major along X
         ratio = ry / rx
     else:
-        major_axis = (0.0, ry, 0.0)   # major along Y
+        major_axis = (0.0, ry, 0.0)  # major along Y
         ratio = rx / ry
 
     # Numerical safety (should already be in (0,1], but clamp tiny noise)
@@ -160,6 +164,7 @@ def _draw_bed_symbol_in_bbox(msp, x0, y0, x1, y1, *, is_double, head_side="top")
 #  proportionally — no hard-coded unit assumptions.
 # ═══════════════════════════════════════════════════════════════════
 
+
 def _draw_double_bed(msp, minx, miny, maxx, maxy, door_pt=None):
     """
     Double bed placed in the corner opposite to the door-nearest corner.
@@ -192,8 +197,7 @@ def _draw_double_bed(msp, minx, miny, maxx, maxy, door_pt=None):
             "tr": (maxx, maxy),
         }
         nearest_corner = min(
-            corners,
-            key=lambda c: (corners[c][0] - dx) ** 2 + (corners[c][1] - dy) ** 2
+            corners, key=lambda c: (corners[c][0] - dx) ** 2 + (corners[c][1] - dy) ** 2
         )
 
     opposite = {"bl": "tr", "br": "tl", "tl": "br", "tr": "bl"}[nearest_corner]
@@ -212,7 +216,9 @@ def _draw_double_bed(msp, minx, miny, maxx, maxy, door_pt=None):
         bx1, by1 = maxx - m, maxy - m
         bx0, by0 = bx1 - bed_w, by1 - bed_h
 
-    _draw_bed_symbol_in_bbox(msp, bx0, by0, bx1, by1, is_double=True, head_side=head_side)
+    _draw_bed_symbol_in_bbox(
+        msp, bx0, by0, bx1, by1, is_double=True, head_side=head_side
+    )
 
 
 def _draw_single_bed(msp, minx, miny, maxx, maxy, door_pt=None):
@@ -250,8 +256,7 @@ def _draw_single_bed(msp, minx, miny, maxx, maxy, door_pt=None):
             "tr": (maxx, maxy),
         }
         nearest_corner = min(
-            corners,
-            key=lambda c: (corners[c][0] - dx) ** 2 + (corners[c][1] - dy) ** 2
+            corners, key=lambda c: (corners[c][0] - dx) ** 2 + (corners[c][1] - dy) ** 2
         )
 
     opposite = {"bl": "tr", "br": "tl", "tl": "br", "tr": "bl"}[nearest_corner]
@@ -270,7 +275,9 @@ def _draw_single_bed(msp, minx, miny, maxx, maxy, door_pt=None):
         bx1, by1 = maxx - m, maxy - m
         bx0, by0 = bx1 - bed_w, by1 - bed_h
 
-    _draw_bed_symbol_in_bbox(msp, bx0, by0, bx1, by1, is_double=False, head_side=head_side)
+    _draw_bed_symbol_in_bbox(
+        msp, bx0, by0, bx1, by1, is_double=False, head_side=head_side
+    )
 
 
 def _draw_double_bed_in_bbox(msp, x0, y0, x1, y1, head_side="top"):
@@ -306,7 +313,14 @@ def _draw_sink(msp, x0, y0, w, h):
     x1, y1 = x0 + w, y0 + h
     _rect(msp, x0, y0, x1, y1, L_FURN)
     ix0, iy0, ix1, iy1 = _inset_box(x0, y0, x1, y1, 0.12)
-    _ellipse(msp, (ix0 + ix1) / 2.0, (iy0 + iy1) / 2.0, (ix1 - ix0) * 0.34, (iy1 - iy0) * 0.34, L_FURN)
+    _ellipse(
+        msp,
+        (ix0 + ix1) / 2.0,
+        (iy0 + iy1) / 2.0,
+        (ix1 - ix0) * 0.34,
+        (iy1 - iy0) * 0.34,
+        L_FURN,
+    )
     _circle(msp, (ix0 + ix1) / 2.0, (iy0 + iy1) / 2.0, min(w, h) * 0.05, L_FURN)
     tap_x = x0 + w * 0.50
     _line(msp, tap_x, y1 - h * 0.10, tap_x, y1 + h * 0.10, L_FURN)
@@ -416,7 +430,14 @@ def _draw_sofa(msp, x0, y0, w, h):
 
     # 3-seat seams
     _line(msp, sx0 + (sx1 - sx0) / 3.0, sy0, sx0 + (sx1 - sx0) / 3.0, sy1, L_FURN)
-    _line(msp, sx0 + 2.0 * (sx1 - sx0) / 3.0, sy0, sx0 + 2.0 * (sx1 - sx0) / 3.0, sy1, L_FURN)
+    _line(
+        msp,
+        sx0 + 2.0 * (sx1 - sx0) / 3.0,
+        sy0,
+        sx0 + 2.0 * (sx1 - sx0) / 3.0,
+        sy1,
+        L_FURN,
+    )
 
 
 def _draw_rug(msp, x0, y0, w, h):
@@ -437,7 +458,6 @@ def _draw_dining_chair(msp, x0, y0, w, h):
     _line(msp, x1 - w * 0.20, y0 + h * 0.18, x1 - w * 0.20, y0 + h * 0.05, L_FURN)
 
 
-
 def _canonical_icon_id(icon_id):
     if not icon_id:
         return icon_id
@@ -446,16 +466,19 @@ def _canonical_icon_id(icon_id):
     return ICON_ALIAS_TO_CANONICAL.get(icon_id, icon_id)
 
 
-
 def _draw_icon_by_bbox(msp, icon, x0, y0, x1, y1, item=None):
     icon = _canonical_icon_id(icon)
     w = x1 - x0
     h = y1 - y0
 
     if icon == "single_bed":
-        _draw_single_bed_in_bbox(msp, x0, y0, x1, y1, head_side=(item or {}).get("head_side", "top"))
+        _draw_single_bed_in_bbox(
+            msp, x0, y0, x1, y1, head_side=(item or {}).get("head_side", "top")
+        )
     elif icon == "double_bed":
-        _draw_double_bed_in_bbox(msp, x0, y0, x1, y1, head_side=(item or {}).get("head_side", "top"))
+        _draw_double_bed_in_bbox(
+            msp, x0, y0, x1, y1, head_side=(item or {}).get("head_side", "top")
+        )
     elif icon == "toilet":
         _draw_toilet(msp, x0, y0, w, h)
     elif icon == "sink":
@@ -550,7 +573,7 @@ def _draw_work_desk(msp, x0, y0, w, h):
 
 def _draw_office_chair(msp, x0, y0, w, h):
     """Office chair: seat rectangle + circular wheel base hint."""
-    x1, y1 = x0 + w, y0 + h
+    x1 = x0 + w
     _rect(msp, x0 + w * 0.18, y0 + h * 0.18, x1 - w * 0.18, y0 + h * 0.56, L_FURN)
     _rect(msp, x0 + w * 0.24, y0 + h * 0.62, x1 - w * 0.24, y0 + h * 0.90, L_FURN)
     cx = x0 + w / 2.0
@@ -613,7 +636,9 @@ def _compute_bed_box(minx, miny, maxx, maxy, is_master, door_pt=None):
             "tl": (minx, maxy),
             "tr": (maxx, maxy),
         }
-        nearest_corner = min(corners, key=lambda c: (corners[c][0] - dx) ** 2 + (corners[c][1] - dy) ** 2)
+        nearest_corner = min(
+            corners, key=lambda c: (corners[c][0] - dx) ** 2 + (corners[c][1] - dy) ** 2
+        )
 
     opposite = {"bl": "tr", "br": "tl", "tl": "br", "tr": "bl"}[nearest_corner]
 
@@ -648,7 +673,7 @@ def _bed_wall_from_bbox(minx, miny, maxx, maxy, bed_bbox):
         "bottom": abs(by0 - miny),
         "top": abs(maxy - by1),
     }
-    return min(d, key=d.get)
+    return min(d, key=lambda side: d[side])
 
 
 def _bbox_polygon(x0, y0, x1, y1):
@@ -698,4 +723,6 @@ def _draw_poly_outline(msp, poly, layer):
     """Draw polygon exterior as a closed polyline."""
     if poly.is_empty:
         return
-    msp.add_lwpolyline(list(poly.exterior.coords), close=True, dxfattribs={'layer': layer})
+    msp.add_lwpolyline(
+        list(poly.exterior.coords), close=True, dxfattribs={"layer": layer}
+    )

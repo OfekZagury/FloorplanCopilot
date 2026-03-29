@@ -3,7 +3,11 @@ import os
 from datetime import datetime
 
 from ResPlan_RAG.pipeline_code import config
-from ResPlan_RAG.pipeline_code.snapshot_pipeline.snapshot_to_render import create_canny_control_map, generate_hf_render, process_cad_to_seg_map
+from ResPlan_RAG.pipeline_code.snapshot_pipeline.snapshot_to_render import (
+    create_canny_control_map,
+    generate_hf_render,
+    process_cad_to_seg_map,
+)
 
 
 def main():
@@ -55,7 +59,10 @@ def main():
         print(f"Segmentation map: {seg_path}")
         print(f"Canny map: {canny_path}")
         control_images = [seg_path, canny_path]
-        control_models = [config.HF_CONTROLNET_MODEL_ID_SEG, config.HF_CONTROLNET_MODEL_ID_CANNY]
+        control_models = [
+            config.HF_CONTROLNET_MODEL_ID_SEG,
+            config.HF_CONTROLNET_MODEL_ID_CANNY,
+        ]
         conditioning_scale = list(config.HF_MULTI_CONTROL_SCALES)
     else:
         raise RuntimeError(f"Unsupported HF_CONTROL_MODE='{config.HF_CONTROL_MODE}'")
@@ -72,4 +79,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -1,0 +1,30 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        pass_filenames: false
+        args:
+          [
+            "--config-file=ResPlan_RAG/pipeline_code/static_analysis/pyproject.toml",
+            "--explicit-package-bases",
+            "ResPlan_RAG/pipeline_code/dxf_exporting",
+          ]
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.2
+    hooks:
+      - id: bandit
+        pass_filenames: false
+        args:
+          [
+            "-c",
+            "ResPlan_RAG/pipeline_code/static_analysis/pyproject.toml",
+            "-r",
+            "ResPlan_RAG/pipeline_code",
+          ]

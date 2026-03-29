@@ -1,12 +1,27 @@
+import math
+
 import ezdxf
 from shapely.geometry import shape, Polygon, MultiPolygon
 from shapely.geometry.base import BaseGeometry
 
 from ResPlan_RAG.pipeline_code import config
-from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import _draw_icon_by_bbox, \
-    _draw_dining_table_round, _canonical_icon_id
-from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import *
-from ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_functions import (_place_bedroom, _place_kitchen, _place_bathroom, _place_living_room)
+from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import (
+    L_DOORS,
+    L_FURN,
+    L_LABELS,
+    L_ROOMS,
+    L_WALLS,
+    ROOM_LABEL_HEIGHT,
+    _canonical_icon_id,
+    _draw_dining_table_round,
+    _draw_icon_by_bbox,
+)
+from ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_functions import (
+    _place_bedroom,
+    _place_kitchen,
+    _place_bathroom,
+    _place_living_room,
+)
 
 logger = config.logger
 
@@ -14,7 +29,11 @@ logger = config.logger
 def _footprint_to_manual_item(icon, fp):
     """Convert a shapely footprint into editor item format."""
     canonical = _canonical_icon_id(icon)
-    display_label = "working_table" if canonical == "desk" else ("working_chair" if canonical == "chair" else canonical)
+    display_label = (
+        "working_table"
+        if canonical == "desk"
+        else ("working_chair" if canonical == "chair" else canonical)
+    )
     if fp.is_empty:
         return None
 
@@ -57,7 +76,11 @@ def _draw_manual_furniture_item(msp, item):
         y = float(item.get("y", 0.0))
         r = float(item.get("r", 0.0))
         if r <= 0:
-            logger.debug("Skipping manual circular item with non-positive radius: icon=%s r=%s", icon, r)
+            logger.debug(
+                "Skipping manual circular item with non-positive radius: icon=%s r=%s",
+                icon,
+                r,
+            )
             return
         if icon != "dining_table_round":
             logger.error("Unsupported circular icon for DXF drawing: %s", icon)
@@ -70,7 +93,12 @@ def _draw_manual_furniture_item(msp, item):
     w = float(item.get("w", 0.0))
     h = float(item.get("h", 0.0))
     if w <= 0 or h <= 0:
-        logger.debug("Skipping manual rect item with non-positive dimensions: icon=%s w=%s h=%s", icon, w, h)
+        logger.debug(
+            "Skipping manual rect item with non-positive dimensions: icon=%s w=%s h=%s",
+            icon,
+            w,
+            h,
+        )
         return
 
     x0 = x - w / 2.0
@@ -82,7 +110,9 @@ def _draw_manual_furniture_item(msp, item):
 
 
 def _draw_manual_furniture(msp, manual_furniture):
-    items = manual_furniture.get("items", []) if isinstance(manual_furniture, dict) else []
+    items = (
+        manual_furniture.get("items", []) if isinstance(manual_furniture, dict) else []
+    )
     logger.debug("Drawing %s manual furniture item(s).", len(items))
     for item in items:
         _draw_manual_furniture_item(msp, item)
@@ -92,6 +122,7 @@ def _draw_manual_furniture(msp, manual_furniture):
 # ═══════════════════════════════════════════════════════════════════
 #  FURNITURE ORCHESTRATOR
 # ═══════════════════════════════════════════════════════════════════
+
 
 def place_all_furniture(msp, playground):
     """
@@ -105,12 +136,17 @@ def place_all_furniture(msp, playground):
     manual_furniture = playground.get("manual_furniture")
     if isinstance(manual_furniture, dict) and manual_furniture.get("enabled"):
         count = _draw_manual_furniture(msp, manual_furniture)
-        logger.info("[Furniture] Manual mode enabled: drew %s item(s); auto-placement skipped.", count)
+        logger.info(
+            "[Furniture] Manual mode enabled: drew %s item(s); auto-placement skipped.",
+            count,
+        )
         return
 
     def to_shapely(geom_data):
-        if isinstance(geom_data, BaseGeometry): return geom_data
-        if isinstance(geom_data, dict) and 'type' in geom_data: return shape(geom_data)
+        if isinstance(geom_data, BaseGeometry):
+            return geom_data
+        if isinstance(geom_data, dict) and "type" in geom_data:
+            return shape(geom_data)
         return None
 
     def extract_polygons(geom):
@@ -123,15 +159,17 @@ def place_all_furniture(msp, playground):
         return []
 
     # ── Bedrooms ──────────────────────────────────────────────────
-    door_geoms = extract_polygons(to_shapely(playground.get('door')))
-    door_geoms += extract_polygons(to_shapely(playground.get('front_door')))
+    door_geoms = extract_polygons(to_shapely(playground.get("door")))
+    door_geoms += extract_polygons(to_shapely(playground.get("front_door")))
 
-    bedrooms = extract_polygons(to_shapely(playground.get('bedroom')))
+    bedrooms = extract_polygons(to_shapely(playground.get("bedroom")))
     if bedrooms:
         master_idx = max(range(len(bedrooms)), key=lambda i: bedrooms[i].area)
         for i, poly in enumerate(bedrooms):
-            is_master = (i == master_idx)
-            nearest_door = min(door_geoms, key=lambda d: poly.distance(d)) if door_geoms else None
+            is_master = i == master_idx
+            nearest_door = (
+                min(door_geoms, key=lambda d: poly.distance(d)) if door_geoms else None
+            )
             logger.info(
                 "[Furniture] %s bed -> %s",
                 "Double" if is_master else "Single",
@@ -142,7 +180,7 @@ def place_all_furniture(msp, playground):
         logger.info("[Furniture] No bedroom geometry found.")
 
     # ── Bathrooms ─────────────────────────────────────────────────
-    bathrooms = extract_polygons(to_shapely(playground.get('bathroom')))
+    bathrooms = extract_polygons(to_shapely(playground.get("bathroom")))
     for i, poly in enumerate(bathrooms):
         logger.info("[Furniture] Toilet + sink + shower -> bathroom %s", i + 1)
         _place_bathroom(msp, poly)
@@ -150,7 +188,7 @@ def place_all_furniture(msp, playground):
         logger.info("[Furniture] No bathroom geometry found.")
 
     # ── Kitchens ──────────────────────────────────────────────────
-    kitchens = extract_polygons(to_shapely(playground.get('kitchen')))
+    kitchens = extract_polygons(to_shapely(playground.get("kitchen")))
     for i, poly in enumerate(kitchens):
         logger.info("[Furniture] Fridge + sink -> kitchen %s", i + 1)
         _place_kitchen(msp, poly)
@@ -158,13 +196,21 @@ def place_all_furniture(msp, playground):
         logger.info("[Furniture] No kitchen geometry found.")
 
     # ── Living rooms ──────────────────────────────────────────────
-    livings = extract_polygons(to_shapely(playground.get('living')))
+    livings = extract_polygons(to_shapely(playground.get("living")))
     for i, poly in enumerate(livings):
-        placed = _place_living_room(msp, poly, kitchen_geoms=kitchens, opening_geoms=door_geoms)
+        placed = _place_living_room(
+            msp, poly, kitchen_geoms=kitchens, opening_geoms=door_geoms
+        )
         if placed:
-            logger.info("[Furniture] Sofa + coffee table + rug + TV + dining set -> living %s", i + 1)
+            logger.info(
+                "[Furniture] Sofa + coffee table + rug + TV + dining set -> living %s",
+                i + 1,
+            )
         else:
-            logger.warning("[Furniture] Living %s skipped (insufficient free space for full set)", i + 1)
+            logger.warning(
+                "[Furniture] Living %s skipped (insufficient free space for full set)",
+                i + 1,
+            )
     if not livings:
         logger.info("[Furniture] No living geometry found.")
 
@@ -172,6 +218,7 @@ def place_all_furniture(msp, playground):
 # ═══════════════════════════════════════════════════════════════════
 #  MAIN EXPORT ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════
+
 
 def export_to_dxf(playground, output_path="final_plan.dxf"):
     """
@@ -183,25 +230,31 @@ def export_to_dxf(playground, output_path="final_plan.dxf"):
     msp = doc.modelspace()
 
     # Layer table
-    doc.layers.new(name=L_WALLS,  dxfattribs={'color': 3})   # green
-    doc.layers.new(name=L_ROOMS,  dxfattribs={'color': 8})   # grey
-    doc.layers.new(name=L_DOORS,  dxfattribs={'color': 6})   # magenta
-    doc.layers.new(name=L_LABELS, dxfattribs={'color': 2})   # yellow
-    doc.layers.new(name=L_FURN,   dxfattribs={'color': 4})   # cyan   – beds
+    doc.layers.new(name=L_WALLS, dxfattribs={"color": 3})  # green
+    doc.layers.new(name=L_ROOMS, dxfattribs={"color": 8})  # grey
+    doc.layers.new(name=L_DOORS, dxfattribs={"color": 6})  # magenta
+    doc.layers.new(name=L_LABELS, dxfattribs={"color": 2})  # yellow
+    doc.layers.new(name=L_FURN, dxfattribs={"color": 4})  # cyan   – beds
 
     # ── Geometry helpers ──────────────────────────────────────────
 
     def to_shapely(geom_data):
-        if isinstance(geom_data, BaseGeometry): return geom_data
-        if isinstance(geom_data, dict) and 'type' in geom_data: return shape(geom_data)
+        if isinstance(geom_data, BaseGeometry):
+            return geom_data
+        if isinstance(geom_data, dict) and "type" in geom_data:
+            return shape(geom_data)
         return None
 
     def draw_polygon(geom, layer):
         if isinstance(geom, Polygon):
-            msp.add_lwpolyline(list(geom.exterior.coords), close=True, dxfattribs={'layer': layer})
+            msp.add_lwpolyline(
+                list(geom.exterior.coords), close=True, dxfattribs={"layer": layer}
+            )
         elif isinstance(geom, MultiPolygon):
             for poly in geom.geoms:
-                msp.add_lwpolyline(list(poly.exterior.coords), close=True, dxfattribs={'layer': layer})
+                msp.add_lwpolyline(
+                    list(poly.exterior.coords), close=True, dxfattribs={"layer": layer}
+                )
 
     def draw_door_swing(geom):
         polygons = geom.geoms if isinstance(geom, MultiPolygon) else [geom]
@@ -212,12 +265,16 @@ def export_to_dxf(playground, output_path="final_plan.dxf"):
             w = maxx - minx
             h = maxy - miny
 
-            msp.add_lwpolyline(list(poly.exterior.coords), close=True, dxfattribs={"layer": L_DOORS})
+            msp.add_lwpolyline(
+                list(poly.exterior.coords), close=True, dxfattribs={"layer": L_DOORS}
+            )
 
             if w > h:
                 r_major = w
                 r_minor = r_major * swing_ratio
-                msp.add_line((minx, miny), (minx, miny + r_minor), dxfattribs={"layer": L_DOORS})
+                msp.add_line(
+                    (minx, miny), (minx, miny + r_minor), dxfattribs={"layer": L_DOORS}
+                )
                 msp.add_ellipse(
                     center=(minx, miny, 0.0),
                     major_axis=(r_major, 0.0, 0.0),
@@ -229,7 +286,9 @@ def export_to_dxf(playground, output_path="final_plan.dxf"):
             else:
                 r_major = h
                 r_minor = r_major * swing_ratio
-                msp.add_line((minx, miny), (minx + r_minor, miny), dxfattribs={"layer": L_DOORS})
+                msp.add_line(
+                    (minx, miny), (minx + r_minor, miny), dxfattribs={"layer": L_DOORS}
+                )
                 msp.add_ellipse(
                     center=(minx, miny, 0.0),
                     major_axis=(0.0, r_major, 0.0),
@@ -249,25 +308,28 @@ def export_to_dxf(playground, output_path="final_plan.dxf"):
         if not geom or geom.is_empty:
             continue
 
-        if key in ('wall', 'window'):
+        if key in ("wall", "window"):
             draw_polygon(geom, L_WALLS)
 
-        elif key in ('door', 'front_door'):
+        elif key in ("door", "front_door"):
             draw_door_swing(geom)
 
-        elif key in ('living', 'bedroom', 'bathroom', 'kitchen', 'balcony'):
+        elif key in ("living", "bedroom", "bathroom", "kitchen", "balcony"):
             draw_polygon(geom, L_ROOMS)
 
             polygons = geom.geoms if isinstance(geom, MultiPolygon) else [geom]
             for i, poly in enumerate(polygons):
-                cx, cy   = poly.centroid.x, poly.centroid.y
+                cx, cy = poly.centroid.x, poly.centroid.y
                 room_name = key.upper() + (f" {i + 1}" if len(polygons) > 1 else "")
                 msp.add_text(
                     room_name,
-                    dxfattribs={'layer': L_LABELS, 'height': ROOM_LABEL_HEIGHT, 'color': 2}
+                    dxfattribs={
+                        "layer": L_LABELS,
+                        "height": ROOM_LABEL_HEIGHT,
+                        "color": 2,
+                    },
                 ).set_placement(
-                    (cx, cy),
-                    align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER
+                    (cx, cy), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER
                 )
 
     # ─────────────────────────────────────────────────────────────
@@ -279,7 +341,9 @@ def export_to_dxf(playground, output_path="final_plan.dxf"):
     try:
         doc.saveas(output_path)
     except Exception:
-        logger.error("[DXF Exporter] Failed saving DXF to: %s", output_path, exc_info=True)
+        logger.error(
+            "[DXF Exporter] Failed saving DXF to: %s", output_path, exc_info=True
+        )
         raise
 
     logger.info("[Success] DXF file saved to: %s", output_path)

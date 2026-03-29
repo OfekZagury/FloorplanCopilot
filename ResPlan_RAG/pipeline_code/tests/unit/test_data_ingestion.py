@@ -52,7 +52,10 @@ def test_create_apartment_description_rich_topology(data_ingestion_module, monke
     assert "A bedroom has an elongated layout." in text
     assert text.count("A bedroom has an elongated layout.") == 1
     assert "dedicated storage space accessible from the kitchen" in text
-    assert "shared wrap-around balcony is accessible from both the living area and a bedroom" in text
+    assert (
+        "shared wrap-around balcony is accessible from both the living area and a bedroom"
+        in text
+    )
     assert "One bathroom is en-suite, connected directly to a bedroom." in text
     assert "One bathroom is accessible from the main living area." in text
 
@@ -60,7 +63,9 @@ def test_create_apartment_description_rich_topology(data_ingestion_module, monke
     assert "A bedroom has direct balcony access." not in text
 
 
-def test_create_apartment_description_falls_back_when_graph_fails(data_ingestion_module, monkeypatch):
+def test_create_apartment_description_falls_back_when_graph_fails(
+    data_ingestion_module, monkeypatch
+):
     module = data_ingestion_module
 
     def raise_graph(_):
@@ -74,7 +79,9 @@ def test_create_apartment_description_falls_back_when_graph_fails(data_ingestion
     assert metadata == {"area": 42.0, "bedrooms": 0, "bathrooms": 0, "balconies": 0}
 
 
-def test_init_sqlite_db_creates_apartments_table(data_ingestion_module, monkeypatch, tmp_path):
+def test_init_sqlite_db_creates_apartments_table(
+    data_ingestion_module, monkeypatch, tmp_path
+):
     module = data_ingestion_module
     db_path = tmp_path / "ingestion_test.db"
     monkeypatch.setattr(module.config, "SQLITE_DB_PATH", str(db_path), raising=False)
@@ -131,9 +138,15 @@ def test_main_ingests_non_null_ids_and_persists_to_sqlite_and_chroma(
     dataset_path.write_bytes(pickle.dumps(plans))
 
     monkeypatch.setattr(module.config, "SQLITE_DB_PATH", str(db_path), raising=False)
-    monkeypatch.setattr(module.config, "CHROMA_DB_PATH", str(chroma_path), raising=False)
-    monkeypatch.setattr(module.config, "CHROMA_COLLECTION_NAME", "floorplans", raising=False)
-    monkeypatch.setattr(module.config, "RESPLAN_DATA_PATH", str(dataset_path), raising=False)
+    monkeypatch.setattr(
+        module.config, "CHROMA_DB_PATH", str(chroma_path), raising=False
+    )
+    monkeypatch.setattr(
+        module.config, "CHROMA_COLLECTION_NAME", "floorplans", raising=False
+    )
+    monkeypatch.setattr(
+        module.config, "RESPLAN_DATA_PATH", str(dataset_path), raising=False
+    )
 
     fake_collection = FakeCollection()
 
@@ -147,7 +160,12 @@ def test_main_ingests_non_null_ids_and_persists_to_sqlite_and_chroma(
         "create_apartment_description",
         lambda plan: (
             f"description-{plan['id']}",
-            {"area": float(plan.get("area", 0.0)), "bedrooms": 0, "bathrooms": 0, "balconies": 0},
+            {
+                "area": float(plan.get("area", 0.0)),
+                "bedrooms": 0,
+                "bathrooms": 0,
+                "balconies": 0,
+            },
         ),
     )
 
@@ -159,7 +177,9 @@ def test_main_ingests_non_null_ids_and_persists_to_sqlite_and_chroma(
     assert call["documents"] == ["description-1", "description-2"]
 
     with sqlite3.connect(str(db_path)) as conn:
-        rows = conn.execute("SELECT id, raw_data FROM apartments ORDER BY id").fetchall()
+        rows = conn.execute(
+            "SELECT id, raw_data FROM apartments ORDER BY id"
+        ).fetchall()
     assert [r[0] for r in rows] == [1, 2]
     restored_plan_1 = pickle.loads(rows[0][1])
     assert restored_plan_1["id"] == 1
@@ -174,9 +194,15 @@ def test_main_batches_every_100_records(data_ingestion_module, monkeypatch, tmp_
     dataset_path.write_bytes(pickle.dumps(plans))
 
     monkeypatch.setattr(module.config, "SQLITE_DB_PATH", str(db_path), raising=False)
-    monkeypatch.setattr(module.config, "CHROMA_DB_PATH", str(tmp_path / "chroma_batch"), raising=False)
-    monkeypatch.setattr(module.config, "CHROMA_COLLECTION_NAME", "floorplans", raising=False)
-    monkeypatch.setattr(module.config, "RESPLAN_DATA_PATH", str(dataset_path), raising=False)
+    monkeypatch.setattr(
+        module.config, "CHROMA_DB_PATH", str(tmp_path / "chroma_batch"), raising=False
+    )
+    monkeypatch.setattr(
+        module.config, "CHROMA_COLLECTION_NAME", "floorplans", raising=False
+    )
+    monkeypatch.setattr(
+        module.config, "RESPLAN_DATA_PATH", str(dataset_path), raising=False
+    )
 
     fake_collection = FakeCollection()
     monkeypatch.setattr(
@@ -190,7 +216,12 @@ def test_main_batches_every_100_records(data_ingestion_module, monkeypatch, tmp_
         "create_apartment_description",
         lambda plan: (
             f"desc-{plan['id']}",
-            {"area": float(plan["area"]), "bedrooms": 0, "bathrooms": 0, "balconies": 0},
+            {
+                "area": float(plan["area"]),
+                "bedrooms": 0,
+                "bathrooms": 0,
+                "balconies": 0,
+            },
         ),
     )
 
@@ -202,4 +233,3 @@ def test_main_batches_every_100_records(data_ingestion_module, monkeypatch, tmp_
     assert fake_collection.add_calls[0]["ids"][0] == "1"
     assert fake_collection.add_calls[0]["ids"][-1] == "100"
     assert fake_collection.add_calls[1]["ids"] == ["101"]
-

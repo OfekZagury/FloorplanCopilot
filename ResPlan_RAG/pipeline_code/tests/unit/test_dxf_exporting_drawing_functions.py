@@ -63,16 +63,25 @@ def test_compute_bed_box_changes_head_side_based_on_door_corner(dxf_drawing_modu
     assert res2["head_side"] == "top"
 
 
-def test_is_valid_piece_rejects_outside_collision_and_door_clearance(dxf_drawing_module):
+def test_is_valid_piece_rejects_outside_collision_and_door_clearance(
+    dxf_drawing_module,
+):
     module = dxf_drawing_module
 
     room = box(0, 0, 10, 10)
     occupied = [box(2, 2, 4, 4)]
     door = box(7.5, 7.5, 8.5, 8.5)
 
-    assert module._is_valid_piece(room, box(2.5, 2.5, 3.5, 3.5), occupied, None, 0.0) is False  # intersects occupied
-    assert module._is_valid_piece(room, box(-1, -1, 1, 1), [], None, 0.0) is False  # outside room
-    assert module._is_valid_piece(room, box(7.8, 7.8, 8.2, 8.2), [], door, 0.6) is False  # too close to door
+    assert (
+        module._is_valid_piece(room, box(2.5, 2.5, 3.5, 3.5), occupied, None, 0.0)
+        is False
+    )  # intersects occupied
+    assert (
+        module._is_valid_piece(room, box(-1, -1, 1, 1), [], None, 0.0) is False
+    )  # outside room
+    assert (
+        module._is_valid_piece(room, box(7.8, 7.8, 8.2, 8.2), [], door, 0.6) is False
+    )  # too close to door
     assert module._is_valid_piece(room, box(5, 5, 6, 6), [], door, 0.6) is True
 
 
@@ -80,9 +89,19 @@ def test_draw_icon_by_bbox_dispatch_and_error(dxf_drawing_module, monkeypatch):
     module = dxf_drawing_module
 
     calls = []
-    monkeypatch.setattr(module, "_draw_single_bed_in_bbox", lambda *args, **kwargs: calls.append("single_bed"))
-    monkeypatch.setattr(module, "_draw_double_bed_in_bbox", lambda *args, **kwargs: calls.append("double_bed"))
-    monkeypatch.setattr(module, "_draw_toilet", lambda *args, **kwargs: calls.append("toilet"))
+    monkeypatch.setattr(
+        module,
+        "_draw_single_bed_in_bbox",
+        lambda *args, **kwargs: calls.append("single_bed"),
+    )
+    monkeypatch.setattr(
+        module,
+        "_draw_double_bed_in_bbox",
+        lambda *args, **kwargs: calls.append("double_bed"),
+    )
+    monkeypatch.setattr(
+        module, "_draw_toilet", lambda *args, **kwargs: calls.append("toilet")
+    )
 
     module._draw_icon_by_bbox(object(), "single_bed", 0, 0, 2, 4)
     module._draw_icon_by_bbox(object(), "double_bed", 0, 0, 2, 4)
@@ -144,10 +163,18 @@ def test_draw_piece_by_name_and_poly_outline_helpers(dxf_drawing_module, monkeyp
     module = dxf_drawing_module
 
     calls = []
-    monkeypatch.setattr(module, "_draw_closet", lambda *args, **kwargs: calls.append("closet"))
-    monkeypatch.setattr(module, "_draw_dresser", lambda *args, **kwargs: calls.append("dresser"))
-    monkeypatch.setattr(module, "_draw_work_desk", lambda *args, **kwargs: calls.append("desk"))
-    monkeypatch.setattr(module, "_draw_office_chair", lambda *args, **kwargs: calls.append("chair"))
+    monkeypatch.setattr(
+        module, "_draw_closet", lambda *args, **kwargs: calls.append("closet")
+    )
+    monkeypatch.setattr(
+        module, "_draw_dresser", lambda *args, **kwargs: calls.append("dresser")
+    )
+    monkeypatch.setattr(
+        module, "_draw_work_desk", lambda *args, **kwargs: calls.append("desk")
+    )
+    monkeypatch.setattr(
+        module, "_draw_office_chair", lambda *args, **kwargs: calls.append("chair")
+    )
 
     module._draw_piece_by_name(object(), "closet", (0, 0, 1, 1))
     module._draw_piece_by_name(object(), "dresser", (0, 0, 1, 1))
@@ -169,5 +196,3 @@ def test_single_bed_reference_and_bed_wall_helpers(dxf_drawing_module):
 
     wall = module._bed_wall_from_bbox(0, 0, 10, 8, (0.4, 0.5, 3.0, 4.0))
     assert wall in {"left", "right", "top", "bottom"}
-
-

@@ -2,13 +2,14 @@ import os
 import copy
 from openai import OpenAI
 from shapely.geometry.base import BaseGeometry
-from shapely.geometry import shape, mapping, Polygon, MultiPolygon, Point
+from shapely.geometry import shape, Polygon, MultiPolygon, Point
 
 from ResPlan_RAG.pipeline_code import config
 
 # Initialize openai API
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY_HERE"))
 logger = config.logger
+
 
 def _prompt_icon_choice():
     keys = list(MANUAL_FURNITURE_CATALOG.keys())
@@ -25,7 +26,9 @@ def _prompt_icon_choice():
 
 def _manual_item_to_footprint(item):
     if item["shape"] == "circle":
-        return Point(float(item["x"]), float(item["y"])).buffer(float(item["r"]), resolution=24)
+        return Point(float(item["x"]), float(item["y"])).buffer(
+            float(item["r"]), resolution=24
+        )
 
     x = float(item["x"])
     y = float(item["y"])
@@ -33,13 +36,14 @@ def _manual_item_to_footprint(item):
     h = float(item["h"])
     hw = w / 2.0
     hh = h / 2.0
-    return Polygon([
-        (x - hw, y - hh),
-        (x + hw, y - hh),
-        (x + hw, y + hh),
-        (x - hw, y + hh),
-    ])
-
+    return Polygon(
+        [
+            (x - hw, y - hh),
+            (x + hw, y - hh),
+            (x + hw, y + hh),
+            (x - hw, y + hh),
+        ]
+    )
 
 
 def _validate_manual_item(item, room_polygons):
@@ -60,7 +64,10 @@ def _validate_manual_item(item, room_polygons):
             if room_poly.buffer(soft_tol).covers(fp):
                 return True, None
 
-    return False, f"{icon}: placement must be fully inside one of: {', '.join(cfg['rooms'])}."
+    return (
+        False,
+        f"{icon}: placement must be fully inside one of: {', '.join(cfg['rooms'])}.",
+    )
 
 
 def _editor_room_polygons(playground):
@@ -73,7 +80,11 @@ def _editor_room_polygons(playground):
 def _to_shapely(geom_data):
     if isinstance(geom_data, BaseGeometry):
         return geom_data
-    if isinstance(geom_data, dict) and 'type' in geom_data and 'coordinates' in geom_data:
+    if (
+        isinstance(geom_data, dict)
+        and "type" in geom_data
+        and "coordinates" in geom_data
+    ):
         return shape(geom_data)
     return None
 
@@ -85,9 +96,10 @@ def _extract_polygons(geom):
         return [geom]
     if isinstance(geom, MultiPolygon):
         return [p for p in geom.geoms if not p.is_empty]
-    if hasattr(geom, 'geoms'):
+    if hasattr(geom, "geoms"):
         return [g for g in geom.geoms if isinstance(g, Polygon) and not g.is_empty]
     return []
+
 
 def _canonical_icon_id(icon_id):
     if not icon_id:
@@ -125,30 +137,106 @@ try:
         QPushButton,
         QVBoxLayout,
     )
+
     HAS_QT = True
 except Exception:
     HAS_QT = False
 
 
 MANUAL_FURNITURE_CATALOG = {
-    "kitchen_sink": {"shape": "rect", "default_w": 14.0, "default_h": 8.0, "rooms": ["kitchen"]},
-    "fridge": {"shape": "rect", "default_w": 10.0, "default_h": 14.0, "rooms": ["kitchen"]},
+    "kitchen_sink": {
+        "shape": "rect",
+        "default_w": 14.0,
+        "default_h": 8.0,
+        "rooms": ["kitchen"],
+    },
+    "fridge": {
+        "shape": "rect",
+        "default_w": 10.0,
+        "default_h": 14.0,
+        "rooms": ["kitchen"],
+    },
     "tv": {"shape": "rect", "default_w": 16.0, "default_h": 4.0, "rooms": ["living"]},
-    "coffee_table": {"shape": "rect", "default_w": 12.0, "default_h": 8.0, "rooms": ["living"]},
-    "dining_table_rect": {"shape": "rect", "default_w": 18.0, "default_h": 10.0, "rooms": ["living"]},
+    "coffee_table": {
+        "shape": "rect",
+        "default_w": 12.0,
+        "default_h": 8.0,
+        "rooms": ["living"],
+    },
+    "dining_table_rect": {
+        "shape": "rect",
+        "default_w": 18.0,
+        "default_h": 10.0,
+        "rooms": ["living"],
+    },
     "dining_table_round": {"shape": "circle", "default_r": 7.0, "rooms": ["living"]},
-    "sofa": {"shape": "rect", "default_w": 24.0, "default_h": 10.0, "rooms": ["living"]},
+    "sofa": {
+        "shape": "rect",
+        "default_w": 24.0,
+        "default_h": 10.0,
+        "rooms": ["living"],
+    },
     "rug": {"shape": "rect", "default_w": 20.0, "default_h": 12.0, "rooms": ["living"]},
-    "dining_chair": {"shape": "rect", "default_w": 6.0, "default_h": 6.0, "rooms": ["living"]},
-    "single_bed": {"shape": "rect", "default_w": 18.0, "default_h": 34.0, "rooms": ["bedroom"]},
-    "double_bed": {"shape": "rect", "default_w": 26.0, "default_h": 36.0, "rooms": ["bedroom"]},
-    "closet": {"shape": "rect", "default_w": 20.0, "default_h": 6.0, "rooms": ["bedroom"]},
-    "dresser": {"shape": "rect", "default_w": 10.0, "default_h": 5.0, "rooms": ["bedroom"]},
-    "desk": {"shape": "rect", "default_w": 12.0, "default_h": 7.0, "rooms": ["bedroom"]},
-    "chair": {"shape": "rect", "default_w": 5.0, "default_h": 5.0, "rooms": ["bedroom"]},
-    "toilet": {"shape": "rect", "default_w": 8.0, "default_h": 12.0, "rooms": ["bathroom"]},
-    "sink": {"shape": "rect", "default_w": 8.0, "default_h": 8.0, "rooms": ["bathroom"]},
-    "shower": {"shape": "rect", "default_w": 12.0, "default_h": 12.0, "rooms": ["bathroom"]},
+    "dining_chair": {
+        "shape": "rect",
+        "default_w": 6.0,
+        "default_h": 6.0,
+        "rooms": ["living"],
+    },
+    "single_bed": {
+        "shape": "rect",
+        "default_w": 18.0,
+        "default_h": 34.0,
+        "rooms": ["bedroom"],
+    },
+    "double_bed": {
+        "shape": "rect",
+        "default_w": 26.0,
+        "default_h": 36.0,
+        "rooms": ["bedroom"],
+    },
+    "closet": {
+        "shape": "rect",
+        "default_w": 20.0,
+        "default_h": 6.0,
+        "rooms": ["bedroom"],
+    },
+    "dresser": {
+        "shape": "rect",
+        "default_w": 10.0,
+        "default_h": 5.0,
+        "rooms": ["bedroom"],
+    },
+    "desk": {
+        "shape": "rect",
+        "default_w": 12.0,
+        "default_h": 7.0,
+        "rooms": ["bedroom"],
+    },
+    "chair": {
+        "shape": "rect",
+        "default_w": 5.0,
+        "default_h": 5.0,
+        "rooms": ["bedroom"],
+    },
+    "toilet": {
+        "shape": "rect",
+        "default_w": 8.0,
+        "default_h": 12.0,
+        "rooms": ["bathroom"],
+    },
+    "sink": {
+        "shape": "rect",
+        "default_w": 8.0,
+        "default_h": 8.0,
+        "rooms": ["bathroom"],
+    },
+    "shower": {
+        "shape": "rect",
+        "default_w": 12.0,
+        "default_h": 12.0,
+        "rooms": ["bathroom"],
+    },
 }
 
 ICON_ALIAS_TO_CANONICAL = {
@@ -178,14 +266,15 @@ ICON_DISPLAY_LABELS = {
 }
 
 
-
 def _interactive_furniture_editor(playground, starting_items, room_polygons):
     """
     Interactive manual furniture editor using PySide6 clicks.
     Returns tuple: ("confirm"|"cancel", items, artifacts).
     """
     if not HAS_QT:
-        raise RuntimeError("PySide6 is not installed. Install with: pip install PySide6")
+        raise RuntimeError(
+            "PySide6 is not installed. Install with: pip install PySide6"
+        )
 
     items = copy.deepcopy(starting_items)
     for it in items:
@@ -323,7 +412,9 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
 
     msg_label = QLabel(state["message"])
     msg_label.setWordWrap(True)
-    msg_label.setStyleSheet("color: #f8f9fa; background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; padding: 8px;")
+    msg_label.setStyleSheet(
+        "color: #f8f9fa; background-color: #2a2a2a; border: 1px solid #555; border-radius: 4px; padding: 8px;"
+    )
     root_layout.addWidget(msg_label)
 
     scene = QGraphicsScene(0.0, 0.0, canvas_w, canvas_h)
@@ -405,13 +496,17 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
         for k in ("wall", "window"):
             for poly in _extract_polygons(_to_shapely(playground.get(k))):
                 pts = [QPointF(*world_to_scene(x, y)) for x, y in poly.exterior.coords]
-                scene.addPolygon(QPolygonF(pts), QPen(QColor(0, 220, 0), 1.5), QBrush(Qt.NoBrush))
+                scene.addPolygon(
+                    QPolygonF(pts), QPen(QColor(0, 220, 0), 1.5), QBrush(Qt.NoBrush)
+                )
 
         # Doors
         for k in ("door", "front_door"):
             for poly in _extract_polygons(_to_shapely(playground.get(k))):
                 pts = [QPointF(*world_to_scene(x, y)) for x, y in poly.exterior.coords]
-                scene.addPolygon(QPolygonF(pts), QPen(QColor(210, 0, 210), 1.2), QBrush(Qt.NoBrush))
+                scene.addPolygon(
+                    QPolygonF(pts), QPen(QColor(210, 0, 210), 1.2), QBrush(Qt.NoBrush)
+                )
 
     def _redraw_all():
         scene.clear()
@@ -424,38 +519,78 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
             if item["shape"] == "circle":
                 cx, cy = world_to_scene(item["x"], item["y"])
                 rr = item["r"] * scale
-                scene.addEllipse(cx - rr, cy - rr, rr * 2.0, rr * 2.0, QPen(QColor(0, 255, 255), 1.5), QBrush(Qt.NoBrush))
+                scene.addEllipse(
+                    cx - rr,
+                    cy - rr,
+                    rr * 2.0,
+                    rr * 2.0,
+                    QPen(QColor(0, 255, 255), 1.5),
+                    QBrush(Qt.NoBrush),
+                )
                 txt = scene.addSimpleText(item_label)
                 txt.setBrush(QBrush(QColor(255, 255, 255)))
                 txt.setPos(cx + 4, cy + 4)
             else:
-                x0, y0 = world_to_scene(item["x"] - item["w"] / 2.0, item["y"] - item["h"] / 2.0)
-                x1, y1 = world_to_scene(item["x"] + item["w"] / 2.0, item["y"] + item["h"] / 2.0)
+                x0, y0 = world_to_scene(
+                    item["x"] - item["w"] / 2.0, item["y"] - item["h"] / 2.0
+                )
+                x1, y1 = world_to_scene(
+                    item["x"] + item["w"] / 2.0, item["y"] + item["h"] / 2.0
+                )
                 rx, ry = min(x0, x1), min(y0, y1)
                 rw, rh = abs(x1 - x0), abs(y1 - y0)
-                scene.addRect(rx, ry, rw, rh, QPen(QColor(0, 255, 255), 1.5), QBrush(Qt.NoBrush))
+                scene.addRect(
+                    rx, ry, rw, rh, QPen(QColor(0, 255, 255), 1.5), QBrush(Qt.NoBrush)
+                )
                 txt = scene.addSimpleText(item_label)
                 txt.setBrush(QBrush(QColor(255, 255, 255)))
                 txt.setPos(rx + 3, ry + 3)
 
         # Move-mode selected item highlight
-        if state["move_idx"] is not None and 0 <= state["move_idx"] < len(state["items"]):
+        if state["move_idx"] is not None and 0 <= state["move_idx"] < len(
+            state["items"]
+        ):
             sel = state["items"][state["move_idx"]]
             if sel["shape"] == "circle":
                 cx, cy = world_to_scene(sel["x"], sel["y"])
                 rr = sel["r"] * scale
-                scene.addEllipse(cx - rr - 3, cy - rr - 3, (rr + 3) * 2.0, (rr + 3) * 2.0, QPen(QColor(255, 180, 0), 2.0), QBrush(Qt.NoBrush))
+                scene.addEllipse(
+                    cx - rr - 3,
+                    cy - rr - 3,
+                    (rr + 3) * 2.0,
+                    (rr + 3) * 2.0,
+                    QPen(QColor(255, 180, 0), 2.0),
+                    QBrush(Qt.NoBrush),
+                )
             else:
-                x0, y0 = world_to_scene(sel["x"] - sel["w"] / 2.0, sel["y"] - sel["h"] / 2.0)
-                x1, y1 = world_to_scene(sel["x"] + sel["w"] / 2.0, sel["y"] + sel["h"] / 2.0)
+                x0, y0 = world_to_scene(
+                    sel["x"] - sel["w"] / 2.0, sel["y"] - sel["h"] / 2.0
+                )
+                x1, y1 = world_to_scene(
+                    sel["x"] + sel["w"] / 2.0, sel["y"] + sel["h"] / 2.0
+                )
                 rx, ry = min(x0, x1), min(y0, y1)
                 rw, rh = abs(x1 - x0), abs(y1 - y0)
-                scene.addRect(rx - 3, ry - 3, rw + 6, rh + 6, QPen(QColor(255, 180, 0), 2.0), QBrush(Qt.NoBrush))
+                scene.addRect(
+                    rx - 3,
+                    ry - 3,
+                    rw + 6,
+                    rh + 6,
+                    QPen(QColor(255, 180, 0), 2.0),
+                    QBrush(Qt.NoBrush),
+                )
 
         # Rect-mode first click preview marker
         if state["rect_start"] is not None:
             sx, sy = state["rect_start"]
-            scene.addEllipse(sx - 4, sy - 4, 8, 8, QPen(QColor(255, 180, 0), 1.0), QBrush(QColor(255, 180, 0)))
+            scene.addEllipse(
+                sx - 4,
+                sy - 4,
+                8,
+                8,
+                QPen(QColor(255, 180, 0), 1.0),
+                QBrush(QColor(255, 180, 0)),
+            )
 
     def _on_icon_change(_):
         chosen = icon_combo.currentData()
@@ -479,10 +614,14 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
         state["mode"] = mode_value
         state["rect_start"] = None
         state["move_idx"] = None
-        mode_label.setText(f"Current action: {action_names.get(mode_value, mode_value)}")
+        mode_label.setText(
+            f"Current action: {action_names.get(mode_value, mode_value)}"
+        )
         for action_mode, action_btn in action_buttons.items():
             action_btn.setChecked(action_mode == mode_value)
-        _set_message(f"Action changed to {action_names.get(mode_value, mode_value)}. Click on plan.")
+        _set_message(
+            f"Action changed to {action_names.get(mode_value, mode_value)}. Click on plan."
+        )
         _redraw_all()
 
     def _nearest_item_index(world_x, world_y):
@@ -519,11 +658,15 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
     def _on_done():
         progress = None
         artifacts = {}
-        apt_id = playground.get("apartment_id") or playground.get("selected_apartment_id")
+        apt_id = playground.get("apartment_id") or playground.get(
+            "selected_apartment_id"
+        )
 
         state["status"] = "confirm"
         try:
-            progress = QProgressDialog("Generating apartment preview and render...", None, 0, 0, dlg)
+            progress = QProgressDialog(
+                "Generating apartment preview and render...", None, 0, 0, dlg
+            )
             progress.setWindowTitle("Generating")
             progress.setWindowModality(Qt.WindowModal)
             progress.setCancelButton(None)
@@ -533,9 +676,13 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
             progress.show()
             QApplication.processEvents()
 
-            from ResPlan_RAG.pipeline_code.snapshot_pipeline.snapshot_to_render import run_post_done_render
+            from ResPlan_RAG.pipeline_code.snapshot_pipeline.snapshot_to_render import (
+                run_post_done_render,
+            )
 
-            artifacts = run_post_done_render(scene=scene, apartment_id=apt_id, playground=playground)
+            artifacts = run_post_done_render(
+                scene=scene, apartment_id=apt_id, playground=playground
+            )
             _set_message(
                 "Done confirmed. Snapshot and render saved to dxf_output/snapshots."
             )
@@ -553,7 +700,10 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
         dlg.reject()
 
     def _on_click(mouse_x, mouse_y):
-        if not (margin <= mouse_x <= canvas_w - margin and margin <= mouse_y <= canvas_h - margin):
+        if not (
+            margin <= mouse_x <= canvas_w - margin
+            and margin <= mouse_y <= canvas_h - margin
+        ):
             return
 
         icon = state["active_icon"]
@@ -677,7 +827,6 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
     out_items = copy.deepcopy(state["items"])
     out_artifacts = copy.deepcopy(state.get("artifacts", {}))
 
-
     if status == "confirm":
         return "confirm", out_items, out_artifacts
     return "cancel", None, {}
@@ -742,13 +891,24 @@ def _cli_furniture_editor(playground, starting_items, room_polygons):
                 y = float(input("y: ").strip())
                 if cfg["shape"] == "circle":
                     item = {
-                        "icon": icon, "shape": "circle", "placement_mode": "point",
-                        "x": x, "y": y, "r": float(cfg["default_r"]), "rotation": 0.0,
+                        "icon": icon,
+                        "shape": "circle",
+                        "placement_mode": "point",
+                        "x": x,
+                        "y": y,
+                        "r": float(cfg["default_r"]),
+                        "rotation": 0.0,
                     }
                 else:
                     item = {
-                        "icon": icon, "shape": "rect", "placement_mode": "point",
-                        "x": x, "y": y, "w": float(cfg["default_w"]), "h": float(cfg["default_h"]), "rotation": 0.0,
+                        "icon": icon,
+                        "shape": "rect",
+                        "placement_mode": "point",
+                        "x": x,
+                        "y": y,
+                        "w": float(cfg["default_w"]),
+                        "h": float(cfg["default_h"]),
+                        "rotation": 0.0,
                     }
             else:
                 x0 = float(input("x0: ").strip())
@@ -762,13 +922,24 @@ def _cli_furniture_editor(playground, starting_items, room_polygons):
                     continue
                 if cfg["shape"] == "circle":
                     item = {
-                        "icon": icon, "shape": "circle", "placement_mode": "rect",
-                        "x": (x0 + x1) / 2.0, "y": (y0 + y1) / 2.0, "r": min(w, h) / 2.0, "rotation": 0.0,
+                        "icon": icon,
+                        "shape": "circle",
+                        "placement_mode": "rect",
+                        "x": (x0 + x1) / 2.0,
+                        "y": (y0 + y1) / 2.0,
+                        "r": min(w, h) / 2.0,
+                        "rotation": 0.0,
                     }
                 else:
                     item = {
-                        "icon": icon, "shape": "rect", "placement_mode": "rect",
-                        "x": (x0 + x1) / 2.0, "y": (y0 + y1) / 2.0, "w": w, "h": h, "rotation": 0.0,
+                        "icon": icon,
+                        "shape": "rect",
+                        "placement_mode": "rect",
+                        "x": (x0 + x1) / 2.0,
+                        "y": (y0 + y1) / 2.0,
+                        "w": w,
+                        "h": h,
+                        "rotation": 0.0,
                     }
         except ValueError:
             logger.warning("Invalid numeric input.")
@@ -792,10 +963,17 @@ def _run_mandatory_manual_editor(playground):
 
     while True:
         try:
-            status, edited_items, artifacts = _interactive_furniture_editor(playground, confirmed_items, room_polygons)
+            status, edited_items, artifacts = _interactive_furniture_editor(
+                playground, confirmed_items, room_polygons
+            )
         except Exception as exc:
-            logger.warning("[Editor] Interactive editor unavailable (%s). Falling back to CLI editor.", exc)
-            status, edited_items, artifacts = _cli_furniture_editor(playground, confirmed_items, room_polygons)
+            logger.warning(
+                "[Editor] Interactive editor unavailable (%s). Falling back to CLI editor.",
+                exc,
+            )
+            status, edited_items, artifacts = _cli_furniture_editor(
+                playground, confirmed_items, room_polygons
+            )
 
         if status == "confirm":
             confirmed_items = copy.deepcopy(edited_items)
@@ -807,7 +985,11 @@ def _run_mandatory_manual_editor(playground):
             if artifacts:
                 playground.setdefault("artifacts", {})
                 playground["artifacts"].update(artifacts)
-            logger.info("[Editor] Confirmed %s manual furniture item(s).", len(confirmed_items))
+            logger.info(
+                "[Editor] Confirmed %s manual furniture item(s).", len(confirmed_items)
+            )
             return playground
 
-        logger.info("[Editor] Cancel selected. Reopening with previous confirmed items.")
+        logger.info(
+            "[Editor] Cancel selected. Reopening with previous confirmed items."
+        )

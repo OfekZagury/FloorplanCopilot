@@ -40,7 +40,9 @@ def retrieval_helpers_module(project_root: Path):
     pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
     sys.modules["config"] = pkg_config
 
-    return importlib.import_module("ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine_helpers")
+    return importlib.import_module(
+        "ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine_helpers"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -55,7 +57,9 @@ def retrieval_engine_module(project_root: Path):
     pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
     sys.modules["config"] = pkg_config
 
-    return importlib.import_module("ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine")
+    return importlib.import_module(
+        "ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -69,7 +73,9 @@ def dxf_exporter_module(project_root: Path):
 
     pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
     sys.modules["config"] = pkg_config
-    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporter")
+    return importlib.import_module(
+        "ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporter"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -83,7 +89,9 @@ def dxf_drawing_module(project_root: Path):
 
     pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
     sys.modules["config"] = pkg_config
-    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions")
+    return importlib.import_module(
+        "ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -97,7 +105,9 @@ def auto_items_module(project_root: Path):
 
     pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
     sys.modules["config"] = pkg_config
-    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.generate_auto_furnitue_items")
+    return importlib.import_module(
+        "ResPlan_RAG.pipeline_code.dxf_exporting.generate_auto_furnitue_items"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -111,7 +121,9 @@ def room_place_module(project_root: Path):
 
     pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
     sys.modules["config"] = pkg_config
-    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_functions")
+    return importlib.import_module(
+        "ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_functions"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -125,6 +137,6 @@ def room_helpers_module(project_root: Path):
 
     pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
     sys.modules["config"] = pkg_config
-    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_helpers")
-
-
+    return importlib.import_module(
+        "ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_helpers"
+    )

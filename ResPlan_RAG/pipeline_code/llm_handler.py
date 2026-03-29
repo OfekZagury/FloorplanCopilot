@@ -14,20 +14,21 @@ def summarize_playground_for_llm(playground):
     into a simplified JSON-friendly format (bounding boxes and areas)
     so the LLM can understand the spatial context accurately.
     """
-    spatial_context = {
-        "total_area": playground.get("area", 0),
-        "rooms": {}
-    }
+    spatial_context = {"total_area": playground.get("area", 0), "rooms": {}}
 
     # Helper function to convert GeoJSON dict to Shapely geometry
     def to_shapely(geom_data):
         if isinstance(geom_data, BaseGeometry):
             return geom_data
-        elif isinstance(geom_data, dict) and 'type' in geom_data and 'coordinates' in geom_data:
+        elif (
+            isinstance(geom_data, dict)
+            and "type" in geom_data
+            and "coordinates" in geom_data
+        ):
             return shape(geom_data)
         return None
 
-    room_types = ['bedroom', 'bathroom', 'living', 'kitchen', 'balcony']
+    room_types = ["bedroom", "bathroom", "living", "kitchen", "balcony"]
     for rt in room_types:
         geom_data = playground.get(rt)
         if not geom_data:
@@ -38,18 +39,15 @@ def summarize_playground_for_llm(playground):
             continue
 
         # Handle multiple rooms of the same type (MultiPolygon)
-        if geom.geom_type in ['MultiPolygon', 'GeometryCollection']:
+        if geom.geom_type in ["MultiPolygon", "GeometryCollection"]:
             for i, polygon in enumerate(geom.geoms):
                 spatial_context["rooms"][f"{rt}_{i + 1}"] = {
                     "bounds": polygon.bounds,  # (minx, miny, maxx, maxy)
-                    "area": polygon.area
+                    "area": polygon.area,
                 }
         else:
             # Single room
-            spatial_context["rooms"][rt] = {
-                "bounds": geom.bounds,
-                "area": geom.area
-            }
+            spatial_context["rooms"][rt] = {"bounds": geom.bounds, "area": geom.area}
 
     return json.dumps(spatial_context, indent=2)
 
@@ -85,16 +83,20 @@ def generate_architectural_plan(playground, user_request):
     print("Calling OpenAI API to generate the design plan...")
     response = client.chat.completions.create(
         model="gpt-5",
-        messages=[{"role": "system", "content": system_instruction},
-                  {"role": "user", "content": prompt}],
-        response_format={"type": "json_object"}
+        messages=[
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": prompt},
+        ],
+        response_format={"type": "json_object"},
     )
 
     return response.choices[0].message.content
 
 
 if __name__ == "__main__":
-    from ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine import retrieve_apartment
+    from ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine import (
+        retrieve_apartment,
+    )
 
     test_query = "4-room apartment with a living room open to the kitchen and a balcony"
     print("1. Retrieving Playground...")

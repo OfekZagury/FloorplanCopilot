@@ -3,8 +3,15 @@ from shapely.geometry.geo import shape
 from shapely.geometry.multipolygon import MultiPolygon
 from shapely.geometry.polygon import Polygon
 
-from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import _bbox_polygon, _is_valid_piece, \
-    _dims_from_area_ratio, _single_bed_reference_size, _bed_wall_from_bbox, _compute_bed_box, _canonical_icon_id
+from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import (
+    _bbox_polygon,
+    _is_valid_piece,
+    _dims_from_area_ratio,
+    _single_bed_reference_size,
+    _bed_wall_from_bbox,
+    _compute_bed_box,
+    _canonical_icon_id,
+)
 
 
 def generate_auto_furniture_items(playground):
@@ -13,10 +20,11 @@ def generate_auto_furniture_items(playground):
     Phase 1 seeds bedroom, bathroom, and kitchen furniture.
     Living-room furniture is intentionally not auto-seeded here.
     """
+
     def to_shapely(geom_data):
         if isinstance(geom_data, BaseGeometry):
             return geom_data
-        if isinstance(geom_data, dict) and 'type' in geom_data:
+        if isinstance(geom_data, dict) and "type" in geom_data:
             return shape(geom_data)
         return None
 
@@ -33,7 +41,9 @@ def generate_auto_furniture_items(playground):
         canonical = _canonical_icon_id(icon)
         out = {
             "icon": canonical,
-            "display_label": "working_table" if canonical == "desk" else ("working_chair" if canonical == "chair" else canonical),
+            "display_label": "working_table"
+            if canonical == "desk"
+            else ("working_chair" if canonical == "chair" else canonical),
             "shape": "rect",
             "placement_mode": "auto",
             "x": float((x0 + x1) / 2.0),
@@ -49,23 +59,27 @@ def generate_auto_furniture_items(playground):
     items = []
 
     # doors for room-aware heuristics
-    door_geoms = extract_polygons(to_shapely(playground.get('door')))
-    door_geoms += extract_polygons(to_shapely(playground.get('front_door')))
+    door_geoms = extract_polygons(to_shapely(playground.get("door")))
+    door_geoms += extract_polygons(to_shapely(playground.get("front_door")))
 
     # Bedrooms
-    bedrooms = extract_polygons(to_shapely(playground.get('bedroom')))
+    bedrooms = extract_polygons(to_shapely(playground.get("bedroom")))
     if bedrooms:
         master_idx = max(range(len(bedrooms)), key=lambda i: bedrooms[i].area)
         for i, poly in enumerate(bedrooms):
-            is_master = (i == master_idx)
-            nearest_door = min(door_geoms, key=lambda d: poly.distance(d)) if door_geoms else None
+            is_master = i == master_idx
+            nearest_door = (
+                min(door_geoms, key=lambda d: poly.distance(d)) if door_geoms else None
+            )
             door_pt = None
             if nearest_door is not None and not nearest_door.is_empty:
                 c = nearest_door.centroid
                 door_pt = (c.x, c.y)
 
             minx, miny, maxx, maxy = poly.bounds
-            bed_layout = _compute_bed_box(minx, miny, maxx, maxy, is_master=is_master, door_pt=door_pt)
+            bed_layout = _compute_bed_box(
+                minx, miny, maxx, maxy, is_master=is_master, door_pt=door_pt
+            )
             if bed_layout is None:
                 continue
             bx0, by0, bx1, by1 = bed_layout["bbox"]
@@ -121,7 +135,9 @@ def generate_auto_furniture_items(playground):
                             x1 = maxx - edge_margin
                             x0 = x1 - depth
                         fp = _bbox_polygon(x0, y0, x1, y1)
-                        if _is_valid_piece(room_poly, fp, occupied, nearest_door, door_clearance):
+                        if _is_valid_piece(
+                            room_poly, fp, occupied, nearest_door, door_clearance
+                        ):
                             add_rect_item("closet", x0, y0, x1, y1)
                             occupied.append(fp)
                             placed_closet = True
@@ -141,7 +157,9 @@ def generate_auto_furniture_items(playground):
                             y1 = maxy - edge_margin
                             y0 = y1 - depth
                         fp = _bbox_polygon(x0, y0, x1, y1)
-                        if _is_valid_piece(room_poly, fp, occupied, nearest_door, door_clearance):
+                        if _is_valid_piece(
+                            room_poly, fp, occupied, nearest_door, door_clearance
+                        ):
                             add_rect_item("closet", x0, y0, x1, y1)
                             occupied.append(fp)
                             placed_closet = True
@@ -166,7 +184,9 @@ def generate_auto_furniture_items(playground):
 
             for x0, y0, x1, y1 in dresser_candidates:
                 fp = _bbox_polygon(x0, y0, x1, y1)
-                if _is_valid_piece(room_poly, fp, occupied, nearest_door, door_clearance):
+                if _is_valid_piece(
+                    room_poly, fp, occupied, nearest_door, door_clearance
+                ):
                     add_rect_item("dresser", x0, y0, x1, y1)
                     occupied.append(fp)
                     break
@@ -177,37 +197,145 @@ def generate_auto_furniture_items(playground):
             office_gap = piece_gap
 
             corner_variants = []
-            corner_variants.append(((minx + edge_margin, miny + edge_margin, minx + edge_margin + desk_w, miny + edge_margin + desk_h),
-                                    (minx + edge_margin + desk_w * 0.5 - chair_s / 2.0, miny + edge_margin + desk_h + office_gap,
-                                     minx + edge_margin + desk_w * 0.5 + chair_s / 2.0, miny + edge_margin + desk_h + office_gap + chair_s)))
-            corner_variants.append(((minx + edge_margin, miny + edge_margin, minx + edge_margin + desk_h, miny + edge_margin + desk_w),
-                                    (minx + edge_margin + desk_h + office_gap, miny + edge_margin + desk_w * 0.5 - chair_s / 2.0,
-                                     minx + edge_margin + desk_h + office_gap + chair_s, miny + edge_margin + desk_w * 0.5 + chair_s / 2.0)))
-            corner_variants.append(((maxx - edge_margin - desk_w, miny + edge_margin, maxx - edge_margin, miny + edge_margin + desk_h),
-                                    (maxx - edge_margin - desk_w * 0.5 - chair_s / 2.0, miny + edge_margin + desk_h + office_gap,
-                                     maxx - edge_margin - desk_w * 0.5 + chair_s / 2.0, miny + edge_margin + desk_h + office_gap + chair_s)))
-            corner_variants.append(((maxx - edge_margin - desk_h, miny + edge_margin, maxx - edge_margin, miny + edge_margin + desk_w),
-                                    (maxx - edge_margin - desk_h - office_gap - chair_s, miny + edge_margin + desk_w * 0.5 - chair_s / 2.0,
-                                     maxx - edge_margin - desk_h - office_gap, miny + edge_margin + desk_w * 0.5 + chair_s / 2.0)))
-            corner_variants.append(((minx + edge_margin, maxy - edge_margin - desk_h, minx + edge_margin + desk_w, maxy - edge_margin),
-                                    (minx + edge_margin + desk_w * 0.5 - chair_s / 2.0, maxy - edge_margin - desk_h - office_gap - chair_s,
-                                     minx + edge_margin + desk_w * 0.5 + chair_s / 2.0, maxy - edge_margin - desk_h - office_gap)))
-            corner_variants.append(((minx + edge_margin, maxy - edge_margin - desk_w, minx + edge_margin + desk_h, maxy - edge_margin),
-                                    (minx + edge_margin + desk_h + office_gap, maxy - edge_margin - desk_w * 0.5 - chair_s / 2.0,
-                                     minx + edge_margin + desk_h + office_gap + chair_s, maxy - edge_margin - desk_w * 0.5 + chair_s / 2.0)))
-            corner_variants.append(((maxx - edge_margin - desk_w, maxy - edge_margin - desk_h, maxx - edge_margin, maxy - edge_margin),
-                                    (maxx - edge_margin - desk_w * 0.5 - chair_s / 2.0, maxy - edge_margin - desk_h - office_gap - chair_s,
-                                     maxx - edge_margin - desk_w * 0.5 + chair_s / 2.0, maxy - edge_margin - desk_h - office_gap)))
-            corner_variants.append(((maxx - edge_margin - desk_h, maxy - edge_margin - desk_w, maxx - edge_margin, maxy - edge_margin),
-                                    (maxx - edge_margin - desk_h - office_gap - chair_s, maxy - edge_margin - desk_w * 0.5 - chair_s / 2.0,
-                                     maxx - edge_margin - desk_h - office_gap, maxy - edge_margin - desk_w * 0.5 + chair_s / 2.0)))
+            corner_variants.append(
+                (
+                    (
+                        minx + edge_margin,
+                        miny + edge_margin,
+                        minx + edge_margin + desk_w,
+                        miny + edge_margin + desk_h,
+                    ),
+                    (
+                        minx + edge_margin + desk_w * 0.5 - chair_s / 2.0,
+                        miny + edge_margin + desk_h + office_gap,
+                        minx + edge_margin + desk_w * 0.5 + chair_s / 2.0,
+                        miny + edge_margin + desk_h + office_gap + chair_s,
+                    ),
+                )
+            )
+            corner_variants.append(
+                (
+                    (
+                        minx + edge_margin,
+                        miny + edge_margin,
+                        minx + edge_margin + desk_h,
+                        miny + edge_margin + desk_w,
+                    ),
+                    (
+                        minx + edge_margin + desk_h + office_gap,
+                        miny + edge_margin + desk_w * 0.5 - chair_s / 2.0,
+                        minx + edge_margin + desk_h + office_gap + chair_s,
+                        miny + edge_margin + desk_w * 0.5 + chair_s / 2.0,
+                    ),
+                )
+            )
+            corner_variants.append(
+                (
+                    (
+                        maxx - edge_margin - desk_w,
+                        miny + edge_margin,
+                        maxx - edge_margin,
+                        miny + edge_margin + desk_h,
+                    ),
+                    (
+                        maxx - edge_margin - desk_w * 0.5 - chair_s / 2.0,
+                        miny + edge_margin + desk_h + office_gap,
+                        maxx - edge_margin - desk_w * 0.5 + chair_s / 2.0,
+                        miny + edge_margin + desk_h + office_gap + chair_s,
+                    ),
+                )
+            )
+            corner_variants.append(
+                (
+                    (
+                        maxx - edge_margin - desk_h,
+                        miny + edge_margin,
+                        maxx - edge_margin,
+                        miny + edge_margin + desk_w,
+                    ),
+                    (
+                        maxx - edge_margin - desk_h - office_gap - chair_s,
+                        miny + edge_margin + desk_w * 0.5 - chair_s / 2.0,
+                        maxx - edge_margin - desk_h - office_gap,
+                        miny + edge_margin + desk_w * 0.5 + chair_s / 2.0,
+                    ),
+                )
+            )
+            corner_variants.append(
+                (
+                    (
+                        minx + edge_margin,
+                        maxy - edge_margin - desk_h,
+                        minx + edge_margin + desk_w,
+                        maxy - edge_margin,
+                    ),
+                    (
+                        minx + edge_margin + desk_w * 0.5 - chair_s / 2.0,
+                        maxy - edge_margin - desk_h - office_gap - chair_s,
+                        minx + edge_margin + desk_w * 0.5 + chair_s / 2.0,
+                        maxy - edge_margin - desk_h - office_gap,
+                    ),
+                )
+            )
+            corner_variants.append(
+                (
+                    (
+                        minx + edge_margin,
+                        maxy - edge_margin - desk_w,
+                        minx + edge_margin + desk_h,
+                        maxy - edge_margin,
+                    ),
+                    (
+                        minx + edge_margin + desk_h + office_gap,
+                        maxy - edge_margin - desk_w * 0.5 - chair_s / 2.0,
+                        minx + edge_margin + desk_h + office_gap + chair_s,
+                        maxy - edge_margin - desk_w * 0.5 + chair_s / 2.0,
+                    ),
+                )
+            )
+            corner_variants.append(
+                (
+                    (
+                        maxx - edge_margin - desk_w,
+                        maxy - edge_margin - desk_h,
+                        maxx - edge_margin,
+                        maxy - edge_margin,
+                    ),
+                    (
+                        maxx - edge_margin - desk_w * 0.5 - chair_s / 2.0,
+                        maxy - edge_margin - desk_h - office_gap - chair_s,
+                        maxx - edge_margin - desk_w * 0.5 + chair_s / 2.0,
+                        maxy - edge_margin - desk_h - office_gap,
+                    ),
+                )
+            )
+            corner_variants.append(
+                (
+                    (
+                        maxx - edge_margin - desk_h,
+                        maxy - edge_margin - desk_w,
+                        maxx - edge_margin,
+                        maxy - edge_margin,
+                    ),
+                    (
+                        maxx - edge_margin - desk_h - office_gap - chair_s,
+                        maxy - edge_margin - desk_w * 0.5 - chair_s / 2.0,
+                        maxx - edge_margin - desk_h - office_gap,
+                        maxy - edge_margin - desk_w * 0.5 + chair_s / 2.0,
+                    ),
+                )
+            )
 
             for desk_bbox, chair_bbox in corner_variants:
                 d_fp = _bbox_polygon(*desk_bbox)
                 c_fp = _bbox_polygon(*chair_bbox)
-                if not _is_valid_piece(room_poly, d_fp, occupied, nearest_door, door_clearance):
+                if not _is_valid_piece(
+                    room_poly, d_fp, occupied, nearest_door, door_clearance
+                ):
                     continue
-                if not _is_valid_piece(room_poly, c_fp, occupied + [d_fp], nearest_door, door_clearance):
+                if not _is_valid_piece(
+                    room_poly, c_fp, occupied + [d_fp], nearest_door, door_clearance
+                ):
                     continue
                 add_rect_item("desk", *desk_bbox)
                 add_rect_item("chair", *chair_bbox)
@@ -216,7 +344,7 @@ def generate_auto_furniture_items(playground):
                 break
 
     # Bathrooms
-    bathrooms = extract_polygons(to_shapely(playground.get('bathroom')))
+    bathrooms = extract_polygons(to_shapely(playground.get("bathroom")))
     for poly in bathrooms:
         minx, miny, maxx, maxy = poly.bounds
         rw = maxx - minx
@@ -235,7 +363,7 @@ def generate_auto_furniture_items(playground):
         toi_h = toi_area / toi_w
         snk_w = (snk_area * snk_ratio) ** 0.5
         snk_h = snk_area / snk_w
-        shw_s = shw_area ** 0.5
+        shw_s = shw_area**0.5
 
         if rw >= rh:
             tox, toy = minx + m, miny + m
@@ -246,12 +374,45 @@ def generate_auto_furniture_items(playground):
             six, siy = minx + m, miny + m + toi_h + m
             shx, shy = maxx - m - shw_s, maxy - m - shw_s
 
-        items.append({"icon": "toilet", "shape": "rect", "placement_mode": "auto", "x": tox + toi_w / 2.0, "y": toy + toi_h / 2.0, "w": toi_w, "h": toi_h, "rotation": 0.0})
-        items.append({"icon": "sink", "shape": "rect", "placement_mode": "auto", "x": six + snk_w / 2.0, "y": siy + snk_h / 2.0, "w": snk_w, "h": snk_h, "rotation": 0.0})
-        items.append({"icon": "shower", "shape": "rect", "placement_mode": "auto", "x": shx + shw_s / 2.0, "y": shy + shw_s / 2.0, "w": shw_s, "h": shw_s, "rotation": 0.0})
+        items.append(
+            {
+                "icon": "toilet",
+                "shape": "rect",
+                "placement_mode": "auto",
+                "x": tox + toi_w / 2.0,
+                "y": toy + toi_h / 2.0,
+                "w": toi_w,
+                "h": toi_h,
+                "rotation": 0.0,
+            }
+        )
+        items.append(
+            {
+                "icon": "sink",
+                "shape": "rect",
+                "placement_mode": "auto",
+                "x": six + snk_w / 2.0,
+                "y": siy + snk_h / 2.0,
+                "w": snk_w,
+                "h": snk_h,
+                "rotation": 0.0,
+            }
+        )
+        items.append(
+            {
+                "icon": "shower",
+                "shape": "rect",
+                "placement_mode": "auto",
+                "x": shx + shw_s / 2.0,
+                "y": shy + shw_s / 2.0,
+                "w": shw_s,
+                "h": shw_s,
+                "rotation": 0.0,
+            }
+        )
 
     # Kitchens
-    kitchens = extract_polygons(to_shapely(playground.get('kitchen')))
+    kitchens = extract_polygons(to_shapely(playground.get("kitchen")))
     for poly in kitchens:
         minx, miny, maxx, maxy = poly.bounds
         rw = maxx - minx
@@ -270,8 +431,29 @@ def generate_auto_furniture_items(playground):
             fx, fy = minx + m, miny + m
             sx, sy = minx + m, miny + m + frg_h + m
 
-        items.append({"icon": "fridge", "shape": "rect", "placement_mode": "auto", "x": fx + frg_w / 2.0, "y": fy + frg_h / 2.0, "w": frg_w, "h": frg_h, "rotation": 0.0})
-        items.append({"icon": "kitchen_sink", "shape": "rect", "placement_mode": "auto", "x": sx + snk_w / 2.0, "y": sy + snk_h / 2.0, "w": snk_w, "h": snk_h, "rotation": 0.0})
-
+        items.append(
+            {
+                "icon": "fridge",
+                "shape": "rect",
+                "placement_mode": "auto",
+                "x": fx + frg_w / 2.0,
+                "y": fy + frg_h / 2.0,
+                "w": frg_w,
+                "h": frg_h,
+                "rotation": 0.0,
+            }
+        )
+        items.append(
+            {
+                "icon": "kitchen_sink",
+                "shape": "rect",
+                "placement_mode": "auto",
+                "x": sx + snk_w / 2.0,
+                "y": sy + snk_h / 2.0,
+                "w": snk_w,
+                "h": snk_h,
+                "rotation": 0.0,
+            }
+        )
 
     return items
