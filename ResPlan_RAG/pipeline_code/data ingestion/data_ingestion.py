@@ -1,4 +1,3 @@
-import os
 import pickle
 import sqlite3
 import chromadb
@@ -6,8 +5,10 @@ from tqdm import tqdm
 import networkx as nx
 
 # Import configuration and the utility functions from the provided file
-import config
+from ResPlan_RAG.pipeline_code import config
 from ResPlan_RAG.resplan_dataset_files.resplan_utils import plan_to_graph
+
+logger = config.logger
 
 
 def aspect_label(polygon):
@@ -33,7 +34,12 @@ def create_apartment_description(plan):
     """
     try:
         G = plan_to_graph(plan)
-    except Exception as e:
+    except Exception:
+        logger.warning(
+            "plan_to_graph failed for plan id=%s; using empty graph fallback.",
+            plan.get("id"),
+            exc_info=True,
+        )
         G = nx.Graph()
 
     room_counts = {}
@@ -188,7 +194,7 @@ def init_sqlite_db():
 
 
 def main():
-    print("Initializing databases...")
+    logger.info("Initializing databases...")
 
     # 1. Initialize SQLite (Document store for raw data)
     sqlite_conn = init_sqlite_db()
@@ -202,11 +208,11 @@ def main():
     # To use Gemini embeddings later, you would pass an embedding_function argument here.
     collection = chroma_client.get_or_create_collection(name=config.CHROMA_COLLECTION_NAME)
 
-    print(f"Loading ResPlan dataset from {config.RESPLAN_DATA_PATH}...")
+    logger.info("Loading ResPlan dataset from %s...", config.RESPLAN_DATA_PATH)
     with open(config.RESPLAN_DATA_PATH, 'rb') as f:
         all_plans = pickle.load(f)
 
-    print(f"Loaded {len(all_plans)} plans. Starting ingestion pipeline...")
+    logger.info("Loaded %s plans. Starting ingestion pipeline...", len(all_plans))
 
     # We use batching for ChromaDB to optimize performance
     batch_size = 100
@@ -214,11 +220,14 @@ def main():
     metadatas_batch = []
     ids_batch = []
 
+    skipped_without_id = 0
+
     # Iterate with a progress bar
     for plan in tqdm(all_plans, desc="Processing Plans"):
         # The dataset provides an 'id', we use it to link both databases
         plan_id = plan.get('id')
         if plan_id is None:
+            skipped_without_id += 1
             continue
 
         str_id = str(plan_id)
@@ -244,6 +253,7 @@ def main():
 
         # Insert into ChromaDB in batches
         if len(docs_batch) >= batch_size:
+            logger.debug("Flushing Chroma batch with %s items.", len(docs_batch))
             collection.add(
                 documents=docs_batch,
                 metadatas=metadatas_batch,
@@ -254,6 +264,7 @@ def main():
 
     # Add any remaining documents in the final batch
     if docs_batch:
+        logger.debug("Flushing final Chroma batch with %s items.", len(docs_batch))
         collection.add(
             documents=docs_batch,
             metadatas=metadatas_batch,
@@ -264,7 +275,9 @@ def main():
     sqlite_conn.commit()
     sqlite_conn.close()
 
-    print("Data ingestion completed successfully!")
+    if skipped_without_id:
+        logger.warning("Skipped %s plans without an 'id' field.", skipped_without_id)
+    logger.info("Data ingestion completed successfully!")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,30 @@
 import os
+import logging
+
+
+def _build_logger():
+	"""Create a shared project logger with idempotent handler setup."""
+	logger_name = os.getenv("RESPLAN_LOGGER_NAME", "resplan_pipeline")
+	logger = logging.getLogger(logger_name)
+
+	level_name = os.getenv("RESPLAN_LOG_LEVEL", "INFO").upper()
+	level = getattr(logging, level_name, logging.INFO)
+	logger.setLevel(level)
+
+	if not logger.handlers:
+		log_format = os.getenv(
+			"RESPLAN_LOG_FORMAT",
+			"%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+		)
+		handler = logging.StreamHandler()
+		handler.setFormatter(logging.Formatter(log_format))
+		logger.addHandler(handler)
+
+	logger.propagate = False
+	return logger
+
+
+logger = _build_logger()
 
 # ==========================================
 # Database & File Paths

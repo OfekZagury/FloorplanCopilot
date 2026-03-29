@@ -4,26 +4,23 @@ from openai import OpenAI
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry import shape, mapping, Polygon, MultiPolygon, Point
 
+from ResPlan_RAG.pipeline_code import config
+
 # Initialize openai API
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY_HERE"))
+logger = config.logger
 
 def _prompt_icon_choice():
     keys = list(MANUAL_FURNITURE_CATALOG.keys())
-    print("\nAvailable icons:")
+    logger.info("Available icons:")
     for i, k in enumerate(keys, start=1):
-        print(f"  {i:>2}. {_icon_display_label(k)}")
+        logger.info("  %2d. %s", i, _icon_display_label(k))
 
     while True:
         raw = input("Choose icon number: ").strip()
         if raw.isdigit() and 1 <= int(raw) <= len(keys):
             return keys[int(raw) - 1]
-        print("Invalid icon selection.")
-
-def _prompt_icon_choice():
-    keys = list(MANUAL_FURNITURE_CATALOG.keys())
-    print("\nAvailable icons:")
-    for i, k in enumerate(keys, start=1):
-        print(f"  {i:>2}. {_icon_display_label(k)}")
+        logger.warning("Invalid icon selection.")
 
 
 def _manual_item_to_footprint(item):
@@ -694,23 +691,23 @@ def _cli_furniture_editor(playground, starting_items, room_polygons):
     _ = playground  # kept for interface parity
     items = copy.deepcopy(starting_items)
 
-    print("\n--- CLI Furniture Editor Fallback ---")
-    print("Commands: add, list, undo, clear, done, cancel, help")
+    logger.info("--- CLI Furniture Editor Fallback ---")
+    logger.info("Commands: add, list, undo, clear, done, cancel, help")
 
     while True:
         cmd = input("[CLI Editor] command: ").strip().lower()
 
         if cmd in {"help", "h"}:
-            print("add -> choose icon/mode and enter coordinates")
-            print("done -> confirm")
-            print("cancel -> reopen editor with previous confirmed items")
+            logger.info("add -> choose icon/mode and enter coordinates")
+            logger.info("done -> confirm")
+            logger.info("cancel -> reopen editor with previous confirmed items")
             continue
 
         if cmd in {"list", "ls"}:
             if not items:
-                print("  (no items)")
+                logger.info("  (no items)")
             for i, it in enumerate(items, start=1):
-                print(f"  {i:>2}. {it}")
+                logger.info("  %2d. %s", i, it)
             continue
 
         if cmd == "undo":
@@ -729,14 +726,14 @@ def _cli_furniture_editor(playground, starting_items, room_polygons):
             return "cancel", None, {}
 
         if cmd != "add":
-            print("Unknown command.")
+            logger.warning("Unknown command.")
             continue
 
         icon = _prompt_icon_choice()
         cfg = MANUAL_FURNITURE_CATALOG[icon]
         mode = input("Mode [point/rect]: ").strip().lower()
         if mode not in {"point", "rect"}:
-            print("Invalid mode.")
+            logger.warning("Invalid mode.")
             continue
 
         try:
@@ -761,7 +758,7 @@ def _cli_furniture_editor(playground, starting_items, room_polygons):
                 w = abs(x1 - x0)
                 h = abs(y1 - y0)
                 if w <= 1e-6 or h <= 1e-6:
-                    print("Rectangle dimensions are too small.")
+                    logger.warning("Rectangle dimensions are too small.")
                     continue
                 if cfg["shape"] == "circle":
                     item = {
@@ -774,12 +771,12 @@ def _cli_furniture_editor(playground, starting_items, room_polygons):
                         "x": (x0 + x1) / 2.0, "y": (y0 + y1) / 2.0, "w": w, "h": h, "rotation": 0.0,
                     }
         except ValueError:
-            print("Invalid numeric input.")
+            logger.warning("Invalid numeric input.")
             continue
 
         ok, reason = _validate_manual_item(item, room_polygons)
         if not ok:
-            print(f"[CLI Editor][Rejected] {reason}")
+            logger.warning("[CLI Editor][Rejected] %s", reason)
             continue
         items.append(item)
 
@@ -797,7 +794,7 @@ def _run_mandatory_manual_editor(playground):
         try:
             status, edited_items, artifacts = _interactive_furniture_editor(playground, confirmed_items, room_polygons)
         except Exception as exc:
-            print(f"[Editor] Interactive editor unavailable ({exc}). Falling back to CLI editor.")
+            logger.warning("[Editor] Interactive editor unavailable (%s). Falling back to CLI editor.", exc)
             status, edited_items, artifacts = _cli_furniture_editor(playground, confirmed_items, room_polygons)
 
         if status == "confirm":
@@ -810,7 +807,7 @@ def _run_mandatory_manual_editor(playground):
             if artifacts:
                 playground.setdefault("artifacts", {})
                 playground["artifacts"].update(artifacts)
-            print(f"[Editor] Confirmed {len(confirmed_items)} manual furniture item(s).")
+            logger.info("[Editor] Confirmed %s manual furniture item(s).", len(confirmed_items))
             return playground
 
-        print("[Editor] Cancel selected. Reopening with previous confirmed items.")
+        logger.info("[Editor] Cancel selected. Reopening with previous confirmed items.")
