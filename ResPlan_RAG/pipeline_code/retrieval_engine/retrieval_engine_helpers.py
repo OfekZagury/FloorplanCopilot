@@ -4,6 +4,7 @@ import chromadb
 import pickle
 import matplotlib.pyplot as plt
 import json
+import textwrap
 import math
 import copy
 from shapely.affinity import scale as shapely_scale
@@ -304,30 +305,23 @@ def plot_top_candidates(candidates_data):
         )
 
         desc = str(description).strip() if description is not None else "N/A"
-        if len(desc) > 220:
-            desc = desc[:217] + "..."
-        ax.text(
-            0.5,
-            0.02,
-            f"Description: {desc}",
-            transform=ax.transAxes,
-            ha="center",
-            va="bottom",
-            fontsize=9,
-            color="black",
-            wrap=True,
+        if len(desc) > 600:
+            desc = desc[:597] + "..."
+        wrapped_desc = textwrap.fill(desc, width=95)
+
+        fig.suptitle(
+            f"{wrapped_desc}",
+            fontsize=13,
+            fontweight="bold",
+            y=0.98,
             bbox=dict(
-                boxstyle="round,pad=0.3",
+                boxstyle="round,pad=0.1",
                 facecolor="white",
                 edgecolor="#cccccc",
-                alpha=0.85,
+                alpha=0.9,
             ),
         )
 
-        fig.suptitle(
-            "Top Matching Apartment Plan",
-            fontsize=13,
-            fontweight="bold",
-        )
-        plt.tight_layout()
+
+        plt.tight_layout(rect=[0, 0, 1, 0.90])
         plt.show()

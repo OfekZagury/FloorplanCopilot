@@ -75,14 +75,6 @@ def retrieve_apartment(initial_query):
         print("[Info] Apartment size can always be adjusted after you pick a plan.")
         plot_top_candidates(candidates_data)
 
-        # Print summary table in console
-        print("\n--- Candidate Summary ---")
-        for rank, apt_id, description, playground in candidates_data:
-            area = playground.get('area', 'N/A')
-            area_str = f"{area:.1f} sqm" if isinstance(area, (int, float)) else str(area)
-            print(f"  #{rank:>2}  ID {apt_id:<8}  {area_str:<12}  {description}")
-        print("-------------------------")
-
         # Step 4: Ask user to pick one (or reject all)
         selected_playground = None
 
