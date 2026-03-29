@@ -1,17 +1,52 @@
+import math
 import os
 import importlib
 from datetime import datetime
-
+import shutil
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 from shapely.geometry import shape, Polygon, MultiPolygon
 from shapely.geometry.base import BaseGeometry
 
-import config
+from ResPlan_RAG.pipeline_code import config
 
 
 _PIPE_CACHE = {}
+
+
+def apply_isometric_warp(image_path):
+    """
+    Rotates and squashes the image while expanding the canvas to prevent clipping.
+    """
+    img = cv2.imread(image_path)
+    if img is None:
+        return
+    h, w = img.shape[:2]
+
+    # Calculate the new canvas dimensions needed for a 45-degree rotation
+    angle = 45
+    theta = math.radians(angle)
+    cos_t = abs(math.cos(theta))
+    sin_t = abs(math.sin(theta))
+
+    new_w = int(w * cos_t + h * sin_t)
+    new_h = int(w * sin_t + h * cos_t)
+
+    center = (w // 2, h // 2)
+    M_rot = cv2.getRotationMatrix2D(center, angle, 1.0)
+
+    # Move the image to the center of the new canvas (so it won't be clipped)
+    M_rot[0, 2] += (new_w / 2) - center[0]
+    M_rot[1, 2] += (new_h / 2) - center[1]
+
+    # Rotate with the expanded canvas
+    rotated = cv2.warpAffine(img, M_rot, (new_w, new_h), borderValue=(0, 0, 0))
+
+    # Isometric squash to create 3D depth
+    warped = cv2.resize(rotated, (new_w, int(new_h * 0.577)))
+
+    cv2.imwrite(image_path, warped)
 
 
 def _safe_apartment_label(apartment_id):
@@ -23,14 +58,16 @@ def _safe_apartment_label(apartment_id):
 def _build_artifact_paths(apartment_id):
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     apt_label = _safe_apartment_label(apartment_id)
-    os.makedirs(config.SNAPSHOT_OUTPUT_DIR, exist_ok=True)
 
     base_name = f"apt_{apt_label}_{ts}"
+    run_dir = os.path.join(config.SNAPSHOT_OUTPUT_DIR, base_name)
+    os.makedirs(run_dir, exist_ok=True)
+
     return {
-        "raw_snapshot": os.path.join(config.SNAPSHOT_OUTPUT_DIR, f"{base_name}_raw.png"),
-        "segmentation_map": os.path.join(config.SNAPSHOT_OUTPUT_DIR, f"{base_name}_seg.png"),
-        "canny_map": os.path.join(config.SNAPSHOT_OUTPUT_DIR, f"{base_name}_canny.png"),
-        "rendered_image": os.path.join(config.SNAPSHOT_OUTPUT_DIR, f"{base_name}_render.png"),
+        "raw_snapshot": os.path.join(run_dir, f"{base_name}_raw.png"),
+        "segmentation_map": os.path.join(run_dir, f"{base_name}_seg.png"),
+        "canny_map": os.path.join(run_dir, f"{base_name}_canny.png"),
+        "rendered_image": os.path.join(run_dir, f"{base_name}_render.png"),
     }
 
 
@@ -296,7 +333,7 @@ def _get_or_create_pipeline(controlnet_model_ids):
     return _PIPE_CACHE[cache_key]
 
 
-def generate_hf_render(control_image_paths, controlnet_model_ids, output_image_path, controlnet_conditioning_scale=None):
+def generate_hf_render(control_image_paths, controlnet_model_ids, output_image_path, controlnet_conditioning_scale=None, prompt=None, negative_prompt=None):
     """Generate a photorealistic image from one or multiple control images."""
     try:
         import torch
@@ -317,9 +354,14 @@ def generate_hf_render(control_image_paths, controlnet_model_ids, output_image_p
     else:
         generator = torch.Generator(device=config.HF_DEVICE).manual_seed(int(config.HF_SEED))
 
+    # --- Handling dynamic prompts ---
+    # If a specific prompt (like 3D) was passed, we will use it, otherwise we will take the 2D from the config
+    final_prompt = prompt if prompt is not None else config.HF_PROMPT
+    final_negative = negative_prompt if negative_prompt is not None else config.HF_NEGATIVE_PROMPT
+
     output = pipe(
-        config.HF_PROMPT,
-        negative_prompt=config.HF_NEGATIVE_PROMPT,
+        final_prompt,
+        negative_prompt=final_negative,
         image=image_input,
         num_inference_steps=int(config.HF_NUM_INFERENCE_STEPS),
         guidance_scale=float(config.HF_GUIDANCE_SCALE),
@@ -372,27 +414,61 @@ def _resolve_control_inputs(raw_snapshot_path, artifacts, playground=None):
 
 def run_post_done_render(scene, apartment_id=None, playground=None):
     """
-    Full post-Done flow: snapshot -> segmentation map -> diffusion render.
-    Returns paths and non-fatal error details.
+    Runs the pipeline twice: once for 2D and a second time for 3D.
     """
     artifacts = _build_artifact_paths(apartment_id)
 
-    capture_scene_snapshot(scene, artifacts["raw_snapshot"])
-    control = _resolve_control_inputs(artifacts["raw_snapshot"], artifacts, playground=playground)
-    artifacts["control_mode"] = control["mode"]
-    artifacts["control_images"] = control["control_images"]
-    artifacts["controlnet_models"] = control["controlnet_models"]
-    artifacts["controlnet_conditioning_scale"] = control["conditioning_scale"]
+    raw_2d = artifacts["raw_snapshot"].replace("_raw.png", "_raw_2d.png")
+    raw_3d = artifacts["raw_snapshot"].replace("_raw.png", "_raw_3d.png")
+    render_2d_path = artifacts["rendered_image"].replace("_render.png", "_render_2d.png")
+    render_3d_path = artifacts["rendered_image"].replace("_render.png", "_render_3d.png")
+
+    # ==========================================
+    # First run: 2D Top-Down
+    # ==========================================
+    capture_scene_snapshot(scene, raw_2d)
+    art_2d = {
+        "segmentation_map": artifacts["segmentation_map"].replace("_seg.png", "_seg_2d.png"),
+        "canny_map": artifacts["canny_map"].replace("_canny.png", "_canny_2d.png")
+    }
+    control_2d = _resolve_control_inputs(raw_2d, art_2d, playground=playground)
 
     if config.ENABLE_POST_DONE_RENDER:
         generate_hf_render(
-            control_image_paths=control["control_images"],
-            controlnet_model_ids=control["controlnet_models"],
-            output_image_path=artifacts["rendered_image"],
-            controlnet_conditioning_scale=control["conditioning_scale"],
+            control_image_paths=control_2d["control_images"],
+            controlnet_model_ids=control_2d["controlnet_models"],
+            output_image_path=render_2d_path,
+            controlnet_conditioning_scale=control_2d["conditioning_scale"],
+            prompt=config.HF_PROMPT,
+            negative_prompt=config.HF_NEGATIVE_PROMPT
         )
-    else:
-        artifacts["rendered_image"] = ""
+        print(f"[Render Engine] 2D Render complete: {render_2d_path}")
 
-    return artifacts
+    # ==========================================
+    # Second run: 3D Isometric Dollhouse
+    # ==========================================
+    shutil.copy(raw_2d, raw_3d)
+    apply_isometric_warp(raw_3d)
+
+    # The Fix: Copy the successful 2D maps and squash them!
+    # This ensures Canny and Seg are 100% aligned and won't cause hallucinations.
+    control_3d_images = []
+    for img_2d_path in control_2d["control_images"]:
+        img_3d_path = img_2d_path.replace("_2d.png", "_3d.png")
+        shutil.copy(img_2d_path, img_3d_path)
+        apply_isometric_warp(img_3d_path)  # Squash the map itself
+        control_3d_images.append(img_3d_path)
+
+    if config.ENABLE_POST_DONE_RENDER:
+        generate_hf_render(
+            control_image_paths=control_3d_images,
+            controlnet_model_ids=control_2d["controlnet_models"],  # Use the same models
+            output_image_path=render_3d_path,
+            controlnet_conditioning_scale=config.HF_MULTI_CONTROL_SCALES_3D if control_2d["mode"] == "multi" else None,
+            prompt=config.HF_PROMPT_3D,
+            negative_prompt=config.HF_NEGATIVE_PROMPT_3D
+        )
+        print(f"[Render Engine] 3D Render complete: {render_3d_path}")
+
+    return {"render_2d": render_2d_path, "render_3d": render_3d_path}
 

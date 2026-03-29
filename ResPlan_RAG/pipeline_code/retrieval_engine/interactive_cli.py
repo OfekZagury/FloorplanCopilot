@@ -536,7 +536,7 @@ def _interactive_furniture_editor(playground, starting_items, room_polygons):
             progress.show()
             QApplication.processEvents()
 
-            from ResPlan_RAG.pipeline_code.snapshot_huggingface.snapshot_to_render import run_post_done_render
+            from ResPlan_RAG.pipeline_code.snapshot_pipeline.snapshot_to_render import run_post_done_render
 
             artifacts = run_post_done_render(scene=scene, apartment_id=apt_id, playground=playground)
             _set_message(

@@ -82,3 +82,9 @@ HF_PROMPT = (
 	'bright natural lighting, 8k resolution, cinematic render, architectural photography.'
 )
 HF_NEGATIVE_PROMPT = 'text, watermark, blurry, low quality, distorted, messy, labels'
+
+
+# --- 3D Isometric Render Settings ---
+HF_PROMPT_3D = "3D isometric dollhouse view, angled camera, high quality architectural render, extruded walls, realistic lighting, unreal engine 5, detailed interior design"
+HF_NEGATIVE_PROMPT_3D = "top-down, flat, 2D plan, blueprint, drawing, wireframe, ugly, blurry"
+HF_MULTI_CONTROL_SCALES_3D = [0.85, 0.35]

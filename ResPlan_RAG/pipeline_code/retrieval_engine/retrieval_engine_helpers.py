@@ -315,7 +315,7 @@ def plot_top_candidates(candidates_data):
             fontweight="bold",
             y=0.98,
             bbox=dict(
-                boxstyle="round,pad=0.1",
+                boxstyle="round,pad=0.15",
                 facecolor="white",
                 edgecolor="#cccccc",
                 alpha=0.9,

@@ -2,8 +2,8 @@ import argparse
 import os
 from datetime import datetime
 
-import config
-from snapshot_to_render import create_canny_control_map, generate_hf_render, process_cad_to_seg_map
+from ResPlan_RAG.pipeline_code import config
+from ResPlan_RAG.pipeline_code.snapshot_pipeline.snapshot_to_render import create_canny_control_map, generate_hf_render, process_cad_to_seg_map
 
 
 def main():
