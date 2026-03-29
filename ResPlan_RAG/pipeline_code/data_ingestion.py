@@ -10,6 +10,21 @@ import config
 from ResPlan_RAG.resplan_dataset_files.resplan_utils import plan_to_graph
 
 
+def aspect_label(polygon):
+    """Helper function to determine if a room is elongated or square based on its bounding box."""
+    minx, miny, maxx, maxy = polygon.bounds
+    w, h = maxx - minx, maxy - miny
+    if w == 0 or h == 0:
+        return None
+
+    ratio = max(w, h) / min(w, h)
+    if ratio > 2.0:
+        return "elongated"
+    if ratio < 1.3:
+        return "square"
+    return None  # neutral, don't add noise
+
+
 def create_apartment_description(plan):
     """
     Generates a pure topological semantic description in ENGLISH for the Vector DB.
@@ -49,13 +64,59 @@ def create_apartment_description(plan):
     elif has_living:
         desc_parts.append("The design includes a central living room.")
 
+    # --- Suggestion 4: Shape compactness per room ---
+    # We use a set to keep track of added labels to avoid repetition
+    # (e.g., if there are two square bedrooms, we only say it once).
+    added_aspects = set()
+    for node, data in G.nodes(data=True):
+        if data.get('type') == 'bedroom':
+            geom = data.get('geometry')
+            if geom:
+                label = aspect_label(geom)
+                if label and label not in added_aspects:
+                    desc_parts.append(f"A bedroom has an {label} layout.")
+                    added_aspects.add(label)
+
+    # --- Suggestion 1: Graph-based room connectivity ---
+    # We use boolean flags to avoid repeating sentences if multiple matches exist
+    has_ensuite = False
+    has_public_bath = False
+    living_balcony = False
+    bedroom_balcony = False
+
+    for u, v, data in G.edges(data=True):
+        edge_type = data.get('type')
+        type_u = G.nodes[u].get('type')
+        type_v = G.nodes[v].get('type')
+        room_pair = {type_u, type_v}
+
+        # Detect en-suite: bathroom connected directly to a bedroom
+        if room_pair == {'bathroom', 'bedroom'} and edge_type == 'via_door' and not has_ensuite:
+            desc_parts.append("One bathroom is en-suite, connected directly to a bedroom.")
+            has_ensuite = True
+
+        # Detect shared/public bathroom: bathroom connected to living
+        if room_pair == {'bathroom', 'living'} and edge_type == 'via_door' and not has_public_bath:
+            desc_parts.append("One bathroom is accessible from the main living area.")
+            has_public_bath = True
+
+        # Balcony off living vs off bedroom
+        if room_pair == {'balcony', 'living'} and not living_balcony:
+            desc_parts.append("The living room opens onto a balcony.")
+            living_balcony = True
+
+        if room_pair == {'balcony', 'bedroom'} and not bedroom_balcony:
+            desc_parts.append("A bedroom has direct balcony access.")
+            bedroom_balcony = True
+
     semantic_text = " ".join(desc_parts)
 
     # Keep area strictly in metadata for the scaling math later
     metadata = {
         "area": float(plan.get('area', 0.0)),
         "bedrooms": int(bedrooms),
-        "bathrooms": int(bathrooms)
+        "bathrooms": int(bathrooms),
+        "balconies": int(balconies),
     }
 
     return semantic_text, metadata
