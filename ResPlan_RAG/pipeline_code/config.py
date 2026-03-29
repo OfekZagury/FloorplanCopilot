@@ -57,7 +57,7 @@ CHROMA_COLLECTION_NAME = 'floorplans'
 # ==========================================
 PIPELINE_CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT_DIR = os.path.abspath(os.path.join(PIPELINE_CODE_DIR, '..', '..'))
-SNAPSHOT_OUTPUT_DIR = os.path.join(PIPELINE_CODE_DIR, 'snapshots')
+SNAPSHOT_OUTPUT_DIR = os.path.join(PIPELINE_CODE_DIR, 'snapshots_results')
 
 # Toggle for generating a photorealistic render after GUI Done.
 ENABLE_POST_DONE_RENDER = True

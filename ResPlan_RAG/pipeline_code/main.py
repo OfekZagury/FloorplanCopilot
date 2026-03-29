@@ -42,7 +42,7 @@ def run_architectural_pipeline():
 
 if __name__ == "__main__":
     if getattr(config, "ENABLE_WEB_EDITOR", False):
-        from ResPlan_RAG.pipeline_code.gradio_app import main as run_gradio_app
+        from ResPlan_RAG.pipeline_code.gradio_GUI.gradio_app import main as run_gradio_app
         run_gradio_app()
     else:
         run_architectural_pipeline()
