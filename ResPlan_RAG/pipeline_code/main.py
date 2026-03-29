@@ -1,3 +1,4 @@
+from ResPlan_RAG.pipeline_code import config
 from ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine import retrieve_apartment
 from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporter import export_to_dxf
 
@@ -38,4 +39,8 @@ def run_architectural_pipeline():
 
 
 if __name__ == "__main__":
-    run_architectural_pipeline()
+    if getattr(config, "ENABLE_WEB_EDITOR", False):
+        from ResPlan_RAG.pipeline_code.gradio_app import main as run_gradio_app
+        run_gradio_app()
+    else:
+        run_architectural_pipeline()

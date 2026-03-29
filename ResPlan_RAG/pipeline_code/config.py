@@ -88,3 +88,11 @@ HF_NEGATIVE_PROMPT = 'text, watermark, blurry, low quality, distorted, messy, la
 HF_PROMPT_3D = "3D isometric dollhouse view, angled camera, high quality architectural render, extruded walls, realistic lighting, unreal engine 5, detailed interior design"
 HF_NEGATIVE_PROMPT_3D = "top-down, flat, 2D plan, blueprint, drawing, wireframe, ugly, blurry"
 HF_MULTI_CONTROL_SCALES_3D = [0.85, 0.35]
+
+
+# ==========================================
+# Web App (Gradio) Settings
+# ==========================================
+ENABLE_WEB_EDITOR = False
+GRADIO_HOST = os.getenv("GRADIO_HOST", "127.0.0.1")
+GRADIO_PORT = int(os.getenv("GRADIO_PORT", "7860"))
