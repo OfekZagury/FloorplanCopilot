@@ -1,7 +1,7 @@
 import math
 
 
-from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporter import  _draw_living_items, _all_items_inside
+from ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_helpers import  _draw_living_items, _all_items_inside
 
 from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import _compute_bed_box, \
     _bed_wall_from_bbox, _single_bed_reference_size, _bbox_polygon, _dims_from_area_ratio, _is_valid_piece, \

@@ -4,8 +4,8 @@ from shapely.geometry.base import BaseGeometry
 
 from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import _draw_icon_by_bbox, \
     _draw_dining_table_round, _canonical_icon_id
-from dxf_exporting_drawing_functions import *
-from room_level_placement_functions import (_place_bedroom, _place_kitchen, _place_bathroom, _place_living_room)
+from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import *
+from ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_functions import (_place_bedroom, _place_kitchen, _place_bathroom, _place_living_room)
 
 
 def _footprint_to_manual_item(icon, fp):

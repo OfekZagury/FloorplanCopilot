@@ -13,7 +13,7 @@ from shapely.geometry import shape, mapping
 
 # Import our configuration file
 from ResPlan_RAG.pipeline_code import config
-from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporter import generate_auto_furniture_items
+from ResPlan_RAG.pipeline_code.dxf_exporting.generate_auto_furnitue_items import generate_auto_furniture_items
 
 from ResPlan_RAG.pipeline_code.retrieval_engine.interactive_cli import _run_mandatory_manual_editor
 # Import the image plotting utility
