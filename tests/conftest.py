@@ -58,3 +58,73 @@ def retrieval_engine_module(project_root: Path):
     return importlib.import_module("ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine")
 
 
+@pytest.fixture(scope="session")
+def dxf_exporter_module(project_root: Path):
+    pipeline_code_dir = project_root / "ResPlan_RAG" / "pipeline_code"
+
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    if str(pipeline_code_dir) not in sys.path:
+        sys.path.insert(0, str(pipeline_code_dir))
+
+    pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
+    sys.modules["config"] = pkg_config
+    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporter")
+
+
+@pytest.fixture(scope="session")
+def dxf_drawing_module(project_root: Path):
+    pipeline_code_dir = project_root / "ResPlan_RAG" / "pipeline_code"
+
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    if str(pipeline_code_dir) not in sys.path:
+        sys.path.insert(0, str(pipeline_code_dir))
+
+    pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
+    sys.modules["config"] = pkg_config
+    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions")
+
+
+@pytest.fixture(scope="session")
+def auto_items_module(project_root: Path):
+    pipeline_code_dir = project_root / "ResPlan_RAG" / "pipeline_code"
+
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    if str(pipeline_code_dir) not in sys.path:
+        sys.path.insert(0, str(pipeline_code_dir))
+
+    pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
+    sys.modules["config"] = pkg_config
+    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.generate_auto_furnitue_items")
+
+
+@pytest.fixture(scope="session")
+def room_place_module(project_root: Path):
+    pipeline_code_dir = project_root / "ResPlan_RAG" / "pipeline_code"
+
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    if str(pipeline_code_dir) not in sys.path:
+        sys.path.insert(0, str(pipeline_code_dir))
+
+    pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
+    sys.modules["config"] = pkg_config
+    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_functions")
+
+
+@pytest.fixture(scope="session")
+def room_helpers_module(project_root: Path):
+    pipeline_code_dir = project_root / "ResPlan_RAG" / "pipeline_code"
+
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    if str(pipeline_code_dir) not in sys.path:
+        sys.path.insert(0, str(pipeline_code_dir))
+
+    pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
+    sys.modules["config"] = pkg_config
+    return importlib.import_module("ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_helpers")
+
+
