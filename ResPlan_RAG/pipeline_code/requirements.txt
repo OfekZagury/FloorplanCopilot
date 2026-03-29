@@ -1,0 +1,17 @@
+# Core runtime dependencies used by the ResPlan pipeline.
+chromadb
+ezdxf
+matplotlib
+openai
+shapely
+opencv-python
+Pillow
+torch
+diffusers
+transformers
+accelerate
+safetensors
+
+# Mandatory manual furniture editor UI backend.
+PySide6>=6.7
+
