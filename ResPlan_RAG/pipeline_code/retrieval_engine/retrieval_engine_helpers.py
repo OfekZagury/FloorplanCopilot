@@ -12,6 +12,7 @@ from shapely.geometry import shape, mapping
 from openai import OpenAI
 
 from ResPlan_RAG.pipeline_code import config
+from ResPlan_RAG.resplan_dataset_files.resplan_utils import plot_plan
 
 # How many top candidates to retrieve and show each round
 TOP_N = 10
@@ -250,64 +251,83 @@ def get_playground_from_sqlite(apartment_id):
 
 def plot_top_candidates(candidates_data):
     """
-    Plots all candidate apartments in a single figure as a grid of subplots.
-    Each subplot is clearly labelled with its selection number so the user
-    knows exactly what to type to pick it.
+    Plots candidate apartments one-by-one in separate figures for better visibility.
+    Also prints each apartment description inside the plot.
 
     Args:
         candidates_data: list of (rank, apartment_id, description, playground_dict)
     """
-    n = len(candidates_data)
-    if n == 0:
+    if not candidates_data:
         return
 
-    # Build a roughly-square grid (e.g. 10 plans → 2 rows × 5 cols)
-    cols = math.ceil(math.sqrt(n))
-    rows = math.ceil(n / cols)
-
-    fig, axes = plt.subplots(rows, cols, figsize=(cols * 5, rows * 5 + 1))
-    fig.suptitle(
-        "Top Matching Apartment Plans\nType the option number in the terminal to select",
-        fontsize=13, fontweight='bold'
-    )
-
-    # Flatten axes array for easy indexing (works for 1-row and multi-row cases)
-    axes_flat = axes.flatten() if hasattr(axes, 'flatten') else [axes]
-
     for rank, apt_id, description, playground in candidates_data:
-        ax = axes_flat[rank - 1]
+        fig, ax = plt.subplots(1, 1, figsize=(10, 10))
 
-        area = playground.get('area', 'N/A')
+        area = playground.get("area", "N/A")
         area_str = f"{area:.1f} sqm" if isinstance(area, (int, float)) else str(area)
-
-        # Build the subplot title — rank number is prominent so it's easy to read
-        subplot_title = f"Option {rank}  ·  {area_str}"
+        subplot_title = f"Option {rank}  ·  ID {apt_id}  ·  {area_str}"
 
         try:
-            # Pass ax and title directly so plot_plan draws into the right subplot
-            plot_plan(playground, ax=ax, title=subplot_title, legend=False, tight=False)
+            plot_plan(playground, ax=ax, title=subplot_title, legend=True, tight=False)
         except Exception as e:
-            ax.text(0.5, 0.5, f"Plot error:\n{e}", ha='center', va='center',
-                    transform=ax.transAxes, fontsize=8, color='red')
-            ax.set_title(subplot_title, fontsize=9, fontweight='bold')
+            ax.text(
+                0.5,
+                0.5,
+                f"Plot error:\n{e}",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+                fontsize=10,
+                color="red",
+            )
+            ax.set_title(subplot_title, fontsize=11, fontweight="bold")
 
-        # Draw a bold coloured border around the axes so each option feels like a card
         for spine in ax.spines.values():
-            spine.set_edgecolor('#3a7bd5')
+            spine.set_edgecolor("#3a7bd5")
             spine.set_linewidth(2.5)
 
-        # Add a prominent option-number badge in the top-left corner of the plot
         ax.text(
-            0.02, 0.97, f"#{rank}",
+            0.02,
+            0.97,
+            f"#{rank}",
             transform=ax.transAxes,
-            fontsize=14, fontweight='bold', color='white',
-            verticalalignment='top',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='#3a7bd5', edgecolor='none', alpha=0.85)
+            fontsize=14,
+            fontweight="bold",
+            color="white",
+            verticalalignment="top",
+            bbox=dict(
+                boxstyle="round,pad=0.3",
+                facecolor="#3a7bd5",
+                edgecolor="none",
+                alpha=0.85,
+            ),
         )
 
-    # Hide any unused subplots in the grid
-    for idx in range(n, len(axes_flat)):
-        axes_flat[idx].set_visible(False)
+        desc = str(description).strip() if description is not None else "N/A"
+        if len(desc) > 220:
+            desc = desc[:217] + "..."
+        ax.text(
+            0.5,
+            0.02,
+            f"Description: {desc}",
+            transform=ax.transAxes,
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            color="black",
+            wrap=True,
+            bbox=dict(
+                boxstyle="round,pad=0.3",
+                facecolor="white",
+                edgecolor="#cccccc",
+                alpha=0.85,
+            ),
+        )
 
-    plt.tight_layout()
-    plt.show()
+        fig.suptitle(
+            "Top Matching Apartment Plan",
+            fontsize=13,
+            fontweight="bold",
+        )
+        plt.tight_layout()
+        plt.show()

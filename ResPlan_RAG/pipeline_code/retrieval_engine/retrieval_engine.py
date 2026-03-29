@@ -70,7 +70,7 @@ def retrieve_apartment(initial_query):
             print("Failed to retrieve geometry for all candidates.")
             break
 
-        # Step 3: Show all plans in one grid figure
+        # Step 3: Show all plans
         print(f"\n[ResPlan Utils] Plotting {len(candidates_data)} plans. A window should open...")
         print("[Info] Apartment size can always be adjusted after you pick a plan.")
         plot_top_candidates(candidates_data)
