@@ -5,6 +5,10 @@ import math
 
 from shapely.geometry.polygon import Polygon
 
+from ResPlan_RAG.pipeline_code import config
+
+logger = config.logger
+
 ROOM_LABEL_HEIGHT = 5.0   # text height for room name labels (drawing units)
 
 # Layer names & ACI colours
@@ -63,6 +67,7 @@ def _ellipse(msp, cx, cy, rx, ry, layer):
     ry = float(abs(ry))
 
     if rx <= 0.0 or ry <= 0.0:
+        logger.error("Ellipse radii must be > 0. Got rx=%s ry=%s", rx, ry)
         raise ValueError(f"Ellipse radii must be > 0. Got rx={rx}, ry={ry}")
 
     # ezdxf expects:
@@ -482,6 +487,7 @@ def _draw_icon_by_bbox(msp, icon, x0, y0, x1, y1, item=None):
     elif icon == "dining_chair":
         _draw_dining_chair(msp, x0, y0, w, h)
     else:
+        logger.error("Unsupported furniture icon for DXF drawing: %s", icon)
         raise ValueError(f"Unsupported furniture icon for DXF drawing: {icon}")
 
 

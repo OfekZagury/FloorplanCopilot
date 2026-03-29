@@ -3,7 +3,10 @@ from shapely.geometry.point import Point
 from shapely.geometry.polygon import Polygon
 import math
 
+from ResPlan_RAG.pipeline_code import config
 from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import _draw_icon_from_footprint
+
+logger = config.logger
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -113,23 +116,28 @@ def _is_layout_valid(living_poly, items, opening_geoms, clearance):
     for item in items:
         fp = item['footprint']
         if fp.is_empty:
-            print(f"[LivingLayout][Invalid] empty footprint for item={item['name']} at _is_layout_valid:383")
+            logger.debug("[LivingLayout][Invalid] empty footprint for item=%s", item['name'])
             return False
         inner = living_poly.buffer(-tol)
         # Accept boundary-touching footprints; reject only true outside overflow.
         if not inner.is_empty:
             if not (inner.covers(fp) or living_poly.buffer(soft_tol).covers(fp)):
-                print(f"[LivingLayout][Invalid] item outside living polygon item={item['name']} at _is_layout_valid:390")
+                logger.debug("[LivingLayout][Invalid] item outside living polygon item=%s", item['name'])
                 return False
         else:
             if not living_poly.buffer(soft_tol).covers(fp):
-                print(f"[LivingLayout][Invalid] item outside living polygon (thin buffer path) item={item['name']} at _is_layout_valid:394")
+                logger.debug("[LivingLayout][Invalid] item outside living polygon (thin buffer path) item=%s", item['name'])
                 return False
 
         if item['name'] in major_for_door_clearance:
             for opening in opening_geoms:
                 if fp.distance(opening) < clearance:
-                    print(f"[LivingLayout][Invalid] door/opening clearance violation item={item['name']} dist={fp.distance(opening):.4f} clearance={clearance:.4f} at _is_layout_valid:393")
+                    logger.debug(
+                        "[LivingLayout][Invalid] door/opening clearance violation item=%s dist=%.4f clearance=%.4f",
+                        item['name'],
+                        fp.distance(opening),
+                        clearance,
+                    )
                     return False
 
     for i in range(len(items)):
@@ -148,7 +156,12 @@ def _is_layout_valid(living_poly, items, opening_geoms, clearance):
                 continue
 
             if a['footprint'].distance(b['footprint']) < 0.05:
-                print(f"[LivingLayout][Invalid] collision a={a_name} b={b_name} dist={a['footprint'].distance(b['footprint']):.4f} threshold=0.0500 at _is_layout_valid:411")
+                logger.debug(
+                    "[LivingLayout][Invalid] collision a=%s b=%s dist=%.4f threshold=0.0500",
+                    a_name,
+                    b_name,
+                    a['footprint'].distance(b['footprint']),
+                )
                 return False
 
     return True

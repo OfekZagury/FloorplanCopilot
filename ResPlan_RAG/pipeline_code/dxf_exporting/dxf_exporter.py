@@ -1,11 +1,14 @@
 import ezdxf
-from shapely.geometry import shape, Polygon, MultiPolygon, Point
+from shapely.geometry import shape, Polygon, MultiPolygon
 from shapely.geometry.base import BaseGeometry
 
+from ResPlan_RAG.pipeline_code import config
 from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import _draw_icon_by_bbox, \
     _draw_dining_table_round, _canonical_icon_id
 from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions import *
 from ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_functions import (_place_bedroom, _place_kitchen, _place_bathroom, _place_living_room)
+
+logger = config.logger
 
 
 def _footprint_to_manual_item(icon, fp):
@@ -54,8 +57,10 @@ def _draw_manual_furniture_item(msp, item):
         y = float(item.get("y", 0.0))
         r = float(item.get("r", 0.0))
         if r <= 0:
+            logger.debug("Skipping manual circular item with non-positive radius: icon=%s r=%s", icon, r)
             return
         if icon != "dining_table_round":
+            logger.error("Unsupported circular icon for DXF drawing: %s", icon)
             raise ValueError(f"Unsupported circular icon for DXF drawing: {icon}")
         _draw_dining_table_round(msp, x, y, r)
         return
@@ -65,6 +70,7 @@ def _draw_manual_furniture_item(msp, item):
     w = float(item.get("w", 0.0))
     h = float(item.get("h", 0.0))
     if w <= 0 or h <= 0:
+        logger.debug("Skipping manual rect item with non-positive dimensions: icon=%s w=%s h=%s", icon, w, h)
         return
 
     x0 = x - w / 2.0
@@ -77,6 +83,7 @@ def _draw_manual_furniture_item(msp, item):
 
 def _draw_manual_furniture(msp, manual_furniture):
     items = manual_furniture.get("items", []) if isinstance(manual_furniture, dict) else []
+    logger.debug("Drawing %s manual furniture item(s).", len(items))
     for item in items:
         _draw_manual_furniture_item(msp, item)
     return len(items)
@@ -98,7 +105,7 @@ def place_all_furniture(msp, playground):
     manual_furniture = playground.get("manual_furniture")
     if isinstance(manual_furniture, dict) and manual_furniture.get("enabled"):
         count = _draw_manual_furniture(msp, manual_furniture)
-        print(f"  [Furniture] Manual mode enabled: drew {count} item(s); auto-placement skipped.")
+        logger.info("[Furniture] Manual mode enabled: drew %s item(s); auto-placement skipped.", count)
         return
 
     def to_shapely(geom_data):
@@ -125,38 +132,41 @@ def place_all_furniture(msp, playground):
         for i, poly in enumerate(bedrooms):
             is_master = (i == master_idx)
             nearest_door = min(door_geoms, key=lambda d: poly.distance(d)) if door_geoms else None
-            print(f"  [Furniture] {'Double' if is_master else 'Single'} bed → "
-                  f"{'master bedroom' if is_master else f'bedroom {i + 1}'}")
+            logger.info(
+                "[Furniture] %s bed -> %s",
+                "Double" if is_master else "Single",
+                "master bedroom" if is_master else f"bedroom {i + 1}",
+            )
             _place_bedroom(msp, poly, is_master, nearest_door)
     else:
-        print("  [Furniture] No bedroom geometry found.")
+        logger.info("[Furniture] No bedroom geometry found.")
 
     # ── Bathrooms ─────────────────────────────────────────────────
     bathrooms = extract_polygons(to_shapely(playground.get('bathroom')))
     for i, poly in enumerate(bathrooms):
-        print(f"  [Furniture] Toilet + sink + shower → bathroom {i + 1}")
+        logger.info("[Furniture] Toilet + sink + shower -> bathroom %s", i + 1)
         _place_bathroom(msp, poly)
     if not bathrooms:
-        print("  [Furniture] No bathroom geometry found.")
+        logger.info("[Furniture] No bathroom geometry found.")
 
     # ── Kitchens ──────────────────────────────────────────────────
     kitchens = extract_polygons(to_shapely(playground.get('kitchen')))
     for i, poly in enumerate(kitchens):
-        print(f"  [Furniture] Fridge + sink → kitchen {i + 1}")
+        logger.info("[Furniture] Fridge + sink -> kitchen %s", i + 1)
         _place_kitchen(msp, poly)
     if not kitchens:
-        print("  [Furniture] No kitchen geometry found.")
+        logger.info("[Furniture] No kitchen geometry found.")
 
     # ── Living rooms ──────────────────────────────────────────────
     livings = extract_polygons(to_shapely(playground.get('living')))
     for i, poly in enumerate(livings):
         placed = _place_living_room(msp, poly, kitchen_geoms=kitchens, opening_geoms=door_geoms)
         if placed:
-            print(f"  [Furniture] Sofa + coffee table + rug + TV + dining set → living {i + 1}")
+            logger.info("[Furniture] Sofa + coffee table + rug + TV + dining set -> living %s", i + 1)
         else:
-            print(f"  [Furniture] Living {i + 1}: skipped (insufficient free space for full set)")
+            logger.warning("[Furniture] Living %s skipped (insufficient free space for full set)", i + 1)
     if not livings:
-        print("  [Furniture] No living geometry found.")
+        logger.info("[Furniture] No living geometry found.")
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -232,7 +242,7 @@ def export_to_dxf(playground, output_path="final_plan.dxf"):
     # ─────────────────────────────────────────────────────────────
     #  PHASE 1 — Structural elements
     # ─────────────────────────────────────────────────────────────
-    print("[DXF Exporter] Drawing structural elements...")
+    logger.info("[DXF Exporter] Drawing structural elements...")
 
     for key, val in playground.items():
         geom = to_shapely(val)
@@ -263,8 +273,13 @@ def export_to_dxf(playground, output_path="final_plan.dxf"):
     # ─────────────────────────────────────────────────────────────
     #  PHASE 2 — Auto furniture placement
     # ─────────────────────────────────────────────────────────────
-    print("[DXF Exporter] Auto-placing furniture and fixtures...")
+    logger.info("[DXF Exporter] Auto-placing furniture and fixtures...")
     place_all_furniture(msp, playground)
 
-    doc.saveas(output_path)
-    print(f"\n[Success] DXF file saved to: {output_path}")
+    try:
+        doc.saveas(output_path)
+    except Exception:
+        logger.error("[DXF Exporter] Failed saving DXF to: %s", output_path, exc_info=True)
+        raise
+
+    logger.info("[Success] DXF file saved to: %s", output_path)

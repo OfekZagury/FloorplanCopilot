@@ -1,5 +1,6 @@
 import math
 
+from ResPlan_RAG.pipeline_code import config
 
 from ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_helpers import  _draw_living_items, _all_items_inside
 
@@ -11,6 +12,8 @@ from ResPlan_RAG.pipeline_code.dxf_exporting.dxf_exporting_drawing_functions imp
 from ResPlan_RAG.pipeline_code.dxf_exporting.room_level_placement_helpers import _living_local_frame, _dims_from_area, \
     _local_bounds_of_geom, _end_zone_polygon, _fit_rect_inside, _fit_circle_inside, _build_dining_round, \
     _build_dining_rect, _score_layout, _is_layout_valid
+
+logger = config.logger
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -260,10 +263,10 @@ def _place_living_room(msp, polygon, kitchen_geoms=None, opening_geoms=None, ret
     opening_geoms = opening_geoms or []
 
     def _dbg(msg):
-        print(f"[LivingLayout][Debug] {msg}")
+        logger.debug("[LivingLayout][Debug] %s", msg)
 
     if polygon.is_empty or polygon.area <= 1e-6:
-        print("[LivingLayout][Skip] invalid living geometry")
+        logger.warning("[LivingLayout][Skip] invalid living geometry")
         _dbg(f"polygon_empty={polygon.is_empty} area={polygon.area if not polygon.is_empty else 'n/a'}")
         return [] if return_items else False
 
@@ -529,7 +532,7 @@ def _place_living_room(msp, polygon, kitchen_geoms=None, opening_geoms=None, ret
             _dbg("candidate rejected by _is_layout_valid (see detailed invalid reason above)")
 
     if not candidates:
-        print("[LivingLayout][Skip] no valid layout candidate found after end-zone strategy")
+        logger.warning("[LivingLayout][Skip] no valid layout candidate found after end-zone strategy")
         _dbg("all tv_side attempts failed")
         return [] if return_items else False
 
