@@ -1,0 +1,12 @@
+# Lean runtime dependencies for Azure App Service (container)
+# Render stack (torch/diffusers/transformers) intentionally omitted.
+chromadb
+ezdxf
+gradio>=4.44.0
+matplotlib
+numpy
+openai
+opencv-python-headless
+Pillow
+shapely
+

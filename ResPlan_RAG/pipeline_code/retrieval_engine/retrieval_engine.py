@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import copy
 from typing import Dict, Any, List, Optional
 
@@ -20,9 +19,6 @@ from ResPlan_RAG.pipeline_code.retrieval_engine.retrieval_engine_helpers import 
     TOP_N,
     build_candidate_card,
 )
-
-# Import the image plotting utility
-from ResPlan_RAG.resplan_dataset_files.resplan_utils import plot_plan
 
 logger = config.logger
 
@@ -255,6 +251,10 @@ def retrieve_apartment(initial_query):
 
 
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+
+    from ResPlan_RAG.resplan_dataset_files.resplan_utils import plot_plan
+
     first_query = input(
         "Describe the apartment you're looking for (note: apartment size can be adjusted after selection): "
     ).strip()

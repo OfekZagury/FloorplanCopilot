@@ -41,6 +41,7 @@ ZOOM_MAX = 2.8
 ZOOM_STEP = 0.2
 PAGE_CSS = """
 .gradio-container {max-width: 1700px !important; margin: 0 auto;}
+class="md svelte-1hf8a14 prose"
 .section-card {background: #141821; border: 1px solid #2b3242; border-radius: 12px; padding: 12px;}
 .muted {color: #b8c0cc;}
 #editor-canvas {border: 1px solid #2b3242; border-radius: 8px;}
@@ -697,7 +698,7 @@ def _done(editor_image, state):
 
     apt_id = playground.get("apartment_id", "web")
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    dxf_dir = os.path.join(config.PROJECT_ROOT_DIR, "dxf_output")
+    dxf_dir = os.path.join(config.PIPELINE_CODE_DIR, "dxf_output")
     os.makedirs(dxf_dir, exist_ok=True)
     dxf_path = os.path.join(dxf_dir, f"apt_{apt_id}_{ts}_web.dxf")
     export_to_dxf(playground, output_path=dxf_path)
@@ -765,7 +766,7 @@ def create_app():
     icon_labels = sorted(set(ICON_DISPLAY_LABELS.values()))
     default_icon_label = _icon_display_label(list(MANUAL_FURNITURE_CATALOG.keys())[0])
 
-    with gr.Blocks(title="ResPlan Web Studio") as demo:
+    with gr.Blocks(title="Cursor For Architects") as demo:
         state = gr.State(_new_editor_state())
         wheel_payload = gr.Textbox(visible=False, elem_id="wheel-payload")
         wheel_dispatch = gr.Button(
@@ -773,7 +774,7 @@ def create_app():
         )
 
         gr.Markdown(
-            "## ResPlan Web Studio\n"
+            "## Cursor For Architects\n"
             "A user-friendly end-to-end pipeline: search -> compare top plans -> select -> edit -> export DXF + render."
         )
         gr.Markdown(
@@ -933,6 +934,7 @@ def create_app():
 def main():
     app = create_app()
     app.queue().launch(
+        allowed_paths=[config.PROJECT_ROOT_DIR],
         server_name=config.GRADIO_HOST,
         server_port=config.GRADIO_PORT,
         share=False,

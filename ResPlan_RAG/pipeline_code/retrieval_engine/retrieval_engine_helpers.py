@@ -3,6 +3,7 @@ import sqlite3
 import chromadb
 import pickle
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import json
 import textwrap
@@ -14,12 +15,72 @@ from shapely.geometry import shape, mapping, Polygon, MultiPolygon
 from openai import OpenAI
 
 from ResPlan_RAG.pipeline_code import config
-from ResPlan_RAG.resplan_dataset_files.resplan_utils import plot_plan
 
 logger = config.logger
 
 # How many top candidates to retrieve and show each round
 TOP_N = 10
+
+_ROOM_COLORS = {
+    "living": "#d9d9d9",
+    "bedroom": "#66c2a5",
+    "bathroom": "#fc8d62",
+    "kitchen": "#8da0cb",
+    "balcony": "#b3b3b3",
+}
+
+
+def _plot_plan_basic(playground, ax, title=None, legend=True, tight=False):
+    """Draw a lightweight apartment preview without geopandas dependencies."""
+    bounds = []
+
+    for key, color in _ROOM_COLORS.items():
+        geom = _to_shapely(playground.get(key))
+        for poly in _extract_polygons(geom):
+            x, y = poly.exterior.xy
+            ax.fill(x, y, color=color, alpha=0.7, linewidth=0.8, edgecolor="#333333")
+            bounds.append(poly.bounds)
+
+    for key, color, lw in (
+        ("wall", "#ffd92f", 1.8),
+        ("window", "#a6d854", 1.4),
+        ("door", "#e78ac3", 1.4),
+        ("front_door", "#a63603", 1.6),
+    ):
+        geom = _to_shapely(playground.get(key))
+        for poly in _extract_polygons(geom):
+            x, y = poly.exterior.xy
+            ax.plot(x, y, color=color, linewidth=lw)
+            bounds.append(poly.bounds)
+
+    if bounds:
+        minx = min(b[0] for b in bounds)
+        miny = min(b[1] for b in bounds)
+        maxx = max(b[2] for b in bounds)
+        maxy = max(b[3] for b in bounds)
+        padx = max((maxx - minx) * 0.05, 1.0)
+        pady = max((maxy - miny) * 0.05, 1.0)
+        ax.set_xlim(minx - padx, maxx + padx)
+        ax.set_ylim(miny - pady, maxy + pady)
+
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_xlabel("X")
+    ax.set_ylabel("Y")
+    ax.grid(False)
+
+    if title:
+        ax.set_title(title, fontsize=11, fontweight="bold")
+
+    if legend:
+        handles = [
+            Line2D([0], [0], color=color, lw=6, label=label)
+            for label, color in _ROOM_COLORS.items()
+        ]
+        ax.legend(handles=handles, loc="upper right", fontsize=8, framealpha=0.8)
+
+    if tight:
+        plt.tight_layout()
+
 
 # Initialize openai API
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY_HERE"))
@@ -297,7 +358,9 @@ def plot_top_candidates(candidates_data):
         subplot_title = f"Option {rank}  ·  ID {apt_id}  ·  {area_str}"
 
         try:
-            plot_plan(playground, ax=ax, title=subplot_title, legend=True, tight=False)
+            _plot_plan_basic(
+                playground, ax=ax, title=subplot_title, legend=True, tight=False
+            )
         except Exception as e:
             ax.text(
                 0.5,
@@ -394,7 +457,7 @@ def build_candidate_preview_image(
     title = f"Option {rank} | ID {apt_id} | {area_str}"
 
     try:
-        plot_plan(playground, ax=ax, title=title, legend=True, tight=False)
+        _plot_plan_basic(playground, ax=ax, title=title, legend=True, tight=False)
     except Exception as exc:
         ax.text(
             0.5,

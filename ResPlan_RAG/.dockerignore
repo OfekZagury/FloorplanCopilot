@@ -1,0 +1,24 @@
+# VCS / IDE
+.git
+.gitignore
+.idea
+
+# Python cache
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+# Local outputs and artifacts
+pipeline_code/snapshots_results/
+pipeline_code/*.dxf
+pipeline_code/tests/
+pipeline_code/static_analysis/
+
+# Dataset assets not required for web runtime
+resplan_dataset_files/
+
+# Optional docs / notebooks
+*.ipynb
+README.md
+

@@ -26,17 +26,30 @@ def _build_logger():
 
 logger = _build_logger()
 
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+PIPELINE_CODE_DIR = os.path.dirname(os.path.abspath(__file__))
+RESPLAN_ROOT_DIR = os.path.abspath(os.path.join(PIPELINE_CODE_DIR, ".."))
+
 # ==========================================
 # Database & File Paths
 # ==========================================
 # The path to the downloaded ResPlan dataset
-RESPLAN_DATA_PATH = "../resplan_dataset_files/ResPlan.pkl"
+RESPLAN_DATA_PATH = os.path.join(
+    RESPLAN_ROOT_DIR, "resplan_dataset_files", "ResPlan.pkl"
+)
 
 # The path where the SQLite database will be saved
-SQLITE_DB_PATH = "databases/apartments_raw.db"
+SQLITE_DB_PATH = os.path.join(PIPELINE_CODE_DIR, "databases", "apartments_raw.db")
 
 # The path where the ChromaDB vector database will be saved
-CHROMA_DB_PATH = "databases/chroma_db"
+CHROMA_DB_PATH = os.path.join(PIPELINE_CODE_DIR, "databases", "chroma_db")
 
 # ==========================================
 # API Keys
@@ -55,12 +68,11 @@ CHROMA_COLLECTION_NAME = "floorplans"
 # ==========================================
 # Snapshot + Render Settings (post-editor Done)
 # ==========================================
-PIPELINE_CODE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT_DIR = os.path.abspath(os.path.join(PIPELINE_CODE_DIR, "..", ".."))
 SNAPSHOT_OUTPUT_DIR = os.path.join(PIPELINE_CODE_DIR, "snapshots_results")
 
 # Toggle for generating a photorealistic render after GUI Done.
-ENABLE_POST_DONE_RENDER = True
+ENABLE_POST_DONE_RENDER = _env_bool("ENABLE_POST_DONE_RENDER", False)
 
 # Hugging Face model settings
 HF_BASE_MODEL_ID = "runwayml/stable-diffusion-v1-5"
@@ -121,6 +133,6 @@ HF_MULTI_CONTROL_SCALES_3D = [0.85, 0.35]
 # ==========================================
 # Web App (Gradio) Settings
 # ==========================================
-ENABLE_WEB_EDITOR = False
+ENABLE_WEB_EDITOR = _env_bool("ENABLE_WEB_EDITOR", True)
 GRADIO_HOST = os.getenv("GRADIO_HOST", "127.0.0.1")
-GRADIO_PORT = int(os.getenv("GRADIO_PORT", "7860"))
+GRADIO_PORT = int(os.getenv("GRADIO_PORT", "8001"))
