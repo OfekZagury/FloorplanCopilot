@@ -3,10 +3,12 @@ repos:
     rev: v0.8.6
     hooks:
       - id: ruff
+        always_run: true
         name: "Ruff lint (staged/all-files): files + fixes + verbose diagnostics"
         verbose: true
         args: ["--fix", "--show-files", "--show-fixes", "--verbose"]
       - id: ruff-format
+        always_run: true
         name: "Ruff format (staged/all-files): verbose formatter output"
         verbose: true
         args: ["--verbose"]
@@ -14,6 +16,7 @@ repos:
     rev: v1.14.1
     hooks:
       - id: mypy
+        always_run: true
         name: "MyPy type check (target: ResPlan_RAG/pipeline_code/dxf_exporting)"
         verbose: true
         pass_filenames: false
@@ -30,6 +33,7 @@ repos:
     rev: 1.8.2
     hooks:
       - id: bandit
+        always_run: true
         name: "Bandit security scan (recursive target: ResPlan_RAG/pipeline_code)"
         verbose: true
         pass_filenames: false
