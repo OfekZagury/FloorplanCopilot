@@ -18,11 +18,11 @@ RUN pip install --upgrade pip \
 # Keep package layout so imports like `ResPlan_RAG.pipeline_code...` work.
 COPY . /app/ResPlan_RAG
 
-EXPOSE 8001
+EXPOSE 80
 
 ENV GRADIO_HOST=0.0.0.0 \
-    GRADIO_PORT=8001 \
-    WEBSITES_PORT=8001 \
+    GRADIO_PORT=80 \
+    WEBSITES_PORT=80 \
     ENABLE_POST_DONE_RENDER=false \
     ENABLE_WEB_EDITOR=true
 

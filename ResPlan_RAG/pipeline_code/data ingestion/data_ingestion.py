@@ -6,7 +6,7 @@ import networkx as nx
 
 # Import configuration and the utility functions from the provided file
 from ResPlan_RAG.pipeline_code import config
-from ResPlan_RAG.resplan_dataset_files.resplan_utils import plan_to_graph
+from ResPlan_RAG.pipeline_code.resplan_utils import plan_to_graph
 
 logger = config.logger
 

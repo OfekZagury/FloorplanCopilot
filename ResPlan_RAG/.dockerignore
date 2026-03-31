@@ -13,7 +13,7 @@
 pipeline_code/snapshots_results/
 pipeline_code/*.dxf
 pipeline_code/tests/
-pipeline_code/static_analysis/
+../static_analysis/
 
 # Dataset assets not required for web runtime
 resplan_dataset_files/

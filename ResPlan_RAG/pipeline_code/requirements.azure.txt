@@ -9,4 +9,4 @@ openai
 opencv-python-headless
 Pillow
 shapely
-
+networkx
