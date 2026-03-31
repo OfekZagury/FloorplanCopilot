@@ -3,23 +3,35 @@ repos:
     rev: v0.8.6
     hooks:
       - id: ruff
-        args: ["--fix"]
+        name: "Ruff lint (staged/all-files): files + fixes + verbose diagnostics"
+        verbose: true
+        args: ["--fix", "--show-files", "--show-fixes", "--verbose"]
       - id: ruff-format
+        name: "Ruff format (staged/all-files): verbose formatter output"
+        verbose: true
+        args: ["--verbose"]
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.14.1
     hooks:
       - id: mypy
+        name: "MyPy type check (target: ResPlan_RAG/pipeline_code/dxf_exporting)"
+        verbose: true
         pass_filenames: false
         args:
           [
             "--config-file=ResPlan_RAG/pipeline_code/static_analysis/pyproject.toml",
             "--explicit-package-bases",
+            "--show-error-codes",
+            "--show-column-numbers",
+            "--show-error-context",
             "ResPlan_RAG/pipeline_code/dxf_exporting",
           ]
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.2
     hooks:
       - id: bandit
+        name: "Bandit security scan (recursive target: ResPlan_RAG/pipeline_code)"
+        verbose: true
         pass_filenames: false
         args:
           [
@@ -27,4 +39,5 @@ repos:
             "ResPlan_RAG/pipeline_code/static_analysis/pyproject.toml",
             "-r",
             "ResPlan_RAG/pipeline_code",
+            "-v",
           ]
