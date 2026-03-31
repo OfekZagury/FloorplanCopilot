@@ -317,7 +317,7 @@ def test_plot_top_candidates_draws_without_crashing(
     retrieval_helpers_module, monkeypatch
 ):
     module = retrieval_helpers_module
-    monkeypatch.setattr(module, "plot_plan", lambda *args, **kwargs: None)
+    monkeypatch.setattr(module, "plot_top_candidates", lambda *args, **kwargs: None)
     monkeypatch.setattr(module.plt, "show", lambda: None)
 
     module.plot_top_candidates(
@@ -335,7 +335,7 @@ def test_build_candidate_preview_image_handles_plot_error_branch(
     def raise_plot(*args, **kwargs):
         raise RuntimeError("plot failed")
 
-    monkeypatch.setattr(module, "plot_plan", raise_plot)
+    monkeypatch.setattr(module, "plot_top_candidates", raise_plot)
     img = module.build_candidate_preview_image(1, 1, "desc", {"area": 44.0})
     assert isinstance(img, np.ndarray)
     assert img.ndim == 3
