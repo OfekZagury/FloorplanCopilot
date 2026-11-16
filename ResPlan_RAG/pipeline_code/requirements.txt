@@ -2,10 +2,15 @@
 chromadb
 ezdxf
 matplotlib
+numpy
+networkx
+geopandas
+tqdm
 openai
 shapely
 opencv-python
 Pillow
+python-dotenv
 torch
 diffusers
 transformers

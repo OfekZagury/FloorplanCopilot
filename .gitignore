@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Secrets
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# Dataset and generated databases (large, rebuilt locally)
+ResPlan_RAG/resplan_dataset_files/*.pkl
+ResPlan_RAG/pipeline_code/databases/
+
+# Generated outputs
+dxf_output/
+*.dxf
+ResPlan_RAG/pipeline_code/snapshots_results/

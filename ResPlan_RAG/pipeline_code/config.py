@@ -1,6 +1,13 @@
 import os
 import logging
 
+try:  # Optional: load settings from a local .env file if python-dotenv is installed.
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 
 def _build_logger():
     """Create a shared project logger with idempotent handler setup."""
