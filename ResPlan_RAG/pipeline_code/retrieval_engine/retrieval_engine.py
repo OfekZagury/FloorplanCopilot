@@ -2,7 +2,7 @@ import copy
 from typing import Dict, Any, List, Optional
 
 from ResPlan_RAG.pipeline_code import config
-from ResPlan_RAG.pipeline_code.dxf_exporting.generate_auto_furnitue_items import (
+from ResPlan_RAG.pipeline_code.dxf_exporting.generate_auto_furniture_items import (
     generate_auto_furniture_items,
 )
 from ResPlan_RAG.pipeline_code.retrieval_engine.interactive_cli import (

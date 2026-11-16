@@ -23,7 +23,7 @@ def data_ingestion_module(project_root: Path):
     sys.modules["config"] = pkg_config
 
     try:
-        return importlib.import_module("ResPlan_RAG.pipeline_code.data_ingestion")
+        return importlib.import_module("ResPlan_RAG.pipeline_code.data_ingestion.data_ingestion")
     except ModuleNotFoundError as exc:
         pytest.skip(f"data_ingestion module unavailable in this workspace: {exc}")
 
@@ -106,7 +106,7 @@ def auto_items_module(project_root: Path):
     pkg_config = importlib.import_module("ResPlan_RAG.pipeline_code.config")
     sys.modules["config"] = pkg_config
     return importlib.import_module(
-        "ResPlan_RAG.pipeline_code.dxf_exporting.generate_auto_furnitue_items"
+        "ResPlan_RAG.pipeline_code.dxf_exporting.generate_auto_furniture_items"
     )
 
 
