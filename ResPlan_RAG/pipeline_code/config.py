@@ -82,7 +82,8 @@ SNAPSHOT_OUTPUT_DIR = os.path.join(PIPELINE_CODE_DIR, "snapshots_results")
 ENABLE_POST_DONE_RENDER = _env_bool("ENABLE_POST_DONE_RENDER", False)
 
 # Hugging Face model settings
-HF_BASE_MODEL_ID = "runwayml/stable-diffusion-v1-5"
+# (runwayml/stable-diffusion-v1-5 was removed from the Hub; this is the official mirror)
+HF_BASE_MODEL_ID = os.getenv("HF_BASE_MODEL_ID", "stable-diffusion-v1-5/stable-diffusion-v1-5")
 
 # Control mode options: seg | canny | multi
 HF_CONTROL_MODE = "multi"
@@ -110,8 +111,9 @@ HF_SEG_ROOM_COLORS = {
     "wall": (120, 120, 120),  # wall class color
 }
 
-HF_DEVICE = "cpu"
-HF_TORCH_DTYPE = "float32"
+# "cuda" + "float16" on a GPU (e.g. a Hugging Face ZeroGPU Space)
+HF_DEVICE = os.getenv("HF_DEVICE", "cpu")
+HF_TORCH_DTYPE = os.getenv("HF_TORCH_DTYPE", "float32")
 
 # Canny preprocessing settings
 HF_CANNY_LOW_THRESHOLD = 100

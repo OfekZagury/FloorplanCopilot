@@ -45,6 +45,7 @@ class="md svelte-1hf8a14 prose"
 .section-card {background: #141821; border: 1px solid #2b3242; border-radius: 12px; padding: 12px;}
 .muted {color: #b8c0cc;}
 #editor-canvas {border: 1px solid #2b3242; border-radius: 8px;}
+#wheel-payload, #wheel-dispatch {display: none !important;}
 #zoom-display input {font-weight: 700;}
 #overlay-box {border: 1px solid #3b82f6; border-radius: 10px; background: rgba(10, 15, 28, 0.95);}
 """
@@ -258,12 +259,16 @@ def _search(query, bedrooms, bathrooms, balconies, state):
         # attempting to access directory paths for image components
         return state, [], "Enter a search query.", gr.update(), "", "", gr.update()
 
+    # 0 / empty = no filter for that room type
+    def _filter_value(v):
+        return int(v) if v not in (None, "") and int(v) > 0 else None
+
     # Perform the search using the retrieval engine
     cards = search_candidates_for_web(
         query=str(query).strip(),
-        bedrooms=bedrooms,
-        bathrooms=bathrooms,
-        balconies=balconies,
+        bedrooms=_filter_value(bedrooms),
+        bathrooms=_filter_value(bathrooms),
+        balconies=_filter_value(balconies),
         n_results=10,
     )
 
@@ -768,10 +773,10 @@ def create_app():
 
     with gr.Blocks(title="Cursor For Architects") as demo:
         state = gr.State(_new_editor_state())
-        wheel_payload = gr.Textbox(visible=False, elem_id="wheel-payload")
-        wheel_dispatch = gr.Button(
-            "wheel-dispatch", visible=False, elem_id="wheel-dispatch"
-        )
+        # Hidden with CSS rather than visible=False: Gradio 6 does not render invisible
+        # components at all, and the wheel-zoom script needs these elements in the page.
+        wheel_payload = gr.Textbox(elem_id="wheel-payload", container=False)
+        wheel_dispatch = gr.Button("wheel-dispatch", elem_id="wheel-dispatch")
 
         gr.Markdown(
             "## Cursor For Architects\n"
@@ -787,9 +792,10 @@ def create_app():
                 label="Apartment request",
                 placeholder="e.g., 4 room apartment with 2 bathrooms and open livingroom",
             )
-            bedrooms = gr.Number(label="Exact bedrooms", precision=0)
-            bathrooms = gr.Number(label="Exact bathrooms", precision=0)
-            balconies = gr.Number(label="Exact balconies", precision=0)
+            # Newer Gradio versions cannot leave a number field empty, so 0 means "no filter".
+            bedrooms = gr.Number(label="Bedrooms (0 = any)", precision=0, value=0, minimum=0)
+            bathrooms = gr.Number(label="Bathrooms (0 = any)", precision=0, value=0, minimum=0)
+            balconies = gr.Number(label="Balconies (0 = any)", precision=0, value=0, minimum=0)
             search_btn = gr.Button("Search")
 
         with gr.Row():
@@ -829,6 +835,9 @@ def create_app():
             type="numpy",
             height=CANVAS_H,
             elem_id="editor-canvas",
+            # Display-only: clicks reach .select() (in Gradio 6 an interactive Image is an
+            # upload widget and swallows them), and visitors can't upload their own images.
+            interactive=False,
         )
         status = gr.Textbox(label="Status", lines=4)
 
@@ -897,44 +906,60 @@ def create_app():
             outputs=[status, dxf_output, render_output, overlay_row],
         )
 
-        # JS bridge: convert mouse wheel on the editor image into backend zoom events.
-        gr.HTML(
-            """
-            <script>
-            (() => {
-              const bindWheel = () => {
-                const root = document.querySelector('#editor-canvas');
-                const payload = document.querySelector('#wheel-payload textarea, #wheel-payload input');
-                const dispatchBtn = document.querySelector('#wheel-dispatch button');
-                if (!root || !payload || !dispatchBtn) return false;
-                const target = root.querySelector('img, canvas') || root;
-                if (target.dataset.wheelBound === '1') return true;
-                target.dataset.wheelBound = '1';
-                target.addEventListener('wheel', (e) => {
-                  e.preventDefault();
-                  payload.value = JSON.stringify({deltaY: e.deltaY});
-                  payload.dispatchEvent(new Event('input', { bubbles: true }));
-                  dispatchBtn.click();
-                }, { passive: false });
-                return true;
-              };
-              if (!bindWheel()) {
-                const obs = new MutationObserver(() => { bindWheel(); });
-                obs.observe(document.body, { childList: true, subtree: true });
-                setTimeout(() => obs.disconnect(), 15000);
-              }
-            })();
-            </script>
-            """
-        )
 
     return demo
 
 
+# JS bridge: convert mouse wheel on the editor image into backend zoom events.
+# Loaded through launch(head=...) because Gradio 6 does not run <script> tags inside gr.HTML.
+WHEEL_ZOOM_HEAD = """
+<script>
+(() => {
+  const bindWheel = () => {
+    const root = document.querySelector('#editor-canvas');
+    const payload = document.querySelector('#wheel-payload textarea, #wheel-payload input');
+    // Gradio 4/5 wrap the button in the elem_id container; Gradio 6 puts the id on the button itself
+  const dispatchBtn = document.querySelector('#wheel-dispatch button') || document.querySelector('button#wheel-dispatch');
+    if (!root || !payload || !dispatchBtn) return false;
+    const target = root.querySelector('img, canvas') || root;
+    if (target.dataset.wheelBound === '1') return true;
+    target.dataset.wheelBound = '1';
+    target.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      payload.value = JSON.stringify({deltaY: e.deltaY});
+      payload.dispatchEvent(new Event('input', { bubbles: true }));
+      dispatchBtn.click();
+    }, { passive: false });
+    return true;
+  };
+  if (!bindWheel()) {
+    const obs = new MutationObserver(() => { bindWheel(); });
+    obs.observe(document.body, { childList: true, subtree: true });
+    setTimeout(() => obs.disconnect(), 15000);
+  }
+})();
+</script>
+"""
+
+
+def output_dirs():
+    """Folders the app writes downloadable files to (DXF exports and renders)."""
+    return [
+        os.path.join(config.PROJECT_ROOT_DIR, "dxf_output"),
+        os.path.join(config.PIPELINE_CODE_DIR, "dxf_output"),
+        config.SNAPSHOT_OUTPUT_DIR,
+    ]
+
+
 def main():
     app = create_app()
+    dirs = output_dirs()
+    for path in dirs:
+        os.makedirs(path, exist_ok=True)
     app.queue().launch(
-        allowed_paths=[config.PROJECT_ROOT_DIR],
+        # Only the output folders are served, never the code or the databases
+        allowed_paths=dirs,
+        head=WHEEL_ZOOM_HEAD,
         server_name=config.GRADIO_HOST,
         server_port=config.GRADIO_PORT,
         share=False,

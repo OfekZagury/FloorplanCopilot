@@ -1,3 +1,4 @@
+import os
 import pickle
 import sqlite3
 import chromadb
@@ -207,6 +208,8 @@ def init_sqlite_db():
     Initializes the SQLite database and creates the table
     if it doesn't exist.
     """
+    # The databases/ folder is not committed, so create it on first run
+    os.makedirs(os.path.dirname(config.SQLITE_DB_PATH), exist_ok=True)
     conn = sqlite3.connect(config.SQLITE_DB_PATH)
     cursor = conn.cursor()
     # Create a table with two columns: the ID and the raw compressed object

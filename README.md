@@ -105,6 +105,15 @@ docker build -t floorplan-copilot .
 docker run -p 8080:80 --env-file ../.env floorplan-copilot
 ```
 
+### Live demo on Hugging Face Spaces
+
+`deploy/huggingface/` contains everything for a ZeroGPU Space: the entry point (`app.py`, which runs only the Stable Diffusion render on the GPU and deletes exports after an hour), the Space requirements and README card, and `build_space.py`, which assembles a ready-to-push Space folder with the prebuilt databases:
+
+```bash
+python -m ResPlan_RAG.pipeline_code.data_ingestion.data_ingestion
+python deploy/huggingface/build_space.py ../floorplan-space
+```
+
 ## Configuration
 
 | Variable | Default | Purpose |

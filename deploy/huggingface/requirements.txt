@@ -1,0 +1,19 @@
+# Installed by Hugging Face Spaces (gradio itself comes from sdk_version in README.md)
+chromadb
+ezdxf
+geopandas
+matplotlib
+networkx
+numpy
+openai
+opencv-python-headless
+Pillow
+shapely
+python-dotenv
+
+# Render step (Stable Diffusion 1.5 + ControlNet) on ZeroGPU
+torch
+diffusers
+transformers
+accelerate
+safetensors
