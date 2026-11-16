@@ -31,6 +31,14 @@ ResPlan_RAG/pipeline_code/databases/** filter=lfs diff=lfs merge=lfs -text
 """
 
 
+GITIGNORE = """\
+__pycache__/
+*.pyc
+dxf_output/
+snapshots_results/
+"""
+
+
 def main(out_dir: str) -> None:
     out = Path(out_dir).resolve()
     databases = PIPELINE / "databases"
@@ -41,6 +49,7 @@ def main(out_dir: str) -> None:
     for name in ("app.py", "requirements.txt", "README.md"):
         shutil.copy2(HERE / name, out / name)
     (out / ".gitattributes").write_text(GITATTRIBUTES, encoding="utf-8")
+    (out / ".gitignore").write_text(GITIGNORE, encoding="utf-8")
 
     target_pkg = out / "ResPlan_RAG" / "pipeline_code"
     if target_pkg.exists():
